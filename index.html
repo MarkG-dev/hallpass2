@@ -1,0 +1,1182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>HALL PASS</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+html, body {
+  background: #0a0a0a;
+  color: #e0e0e0;
+  font-family: 'Press Start 2P', monospace;
+  width: 100%; height: 100%;
+  overflow: hidden;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+body {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+/* RESPONSIVE CONTAINER — scales to fill 90% of viewport */
+#game-wrapper {
+  width: 90vw;
+  height: 90vh;
+  max-width: 1200px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+#game {
+  width: 100%;
+  height: 100%;
+  background: #1a1a2e;
+  border: 3px solid #16213e;
+  position: relative;
+  overflow: hidden;
+  image-rendering: pixelated;
+  display: flex;
+  flex-direction: column;
+}
+
+/* SCENE — takes up ~38% of game height */
+#scene {
+  position: relative;
+  width: 100%;
+  flex: 0 0 38%;
+  overflow: hidden;
+  min-height: 0;
+}
+#scene canvas {
+  width: 100%;
+  height: 100%;
+  image-rendering: pixelated;
+  display: block;
+}
+
+/* HUD */
+#hud {
+  position: absolute;
+  top: 0.8vh; left: 1vw;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3vh;
+  z-index: 10;
+  font-size: clamp(5px, 1vw, 8px);
+  text-shadow: 1px 1px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000;
+}
+
+.stat-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.4vw;
+  position: relative;
+  cursor: pointer;
+}
+
+.stat-bar .tooltip {
+  display: none;
+  position: absolute;
+  left: 8vw;
+  top: -2px;
+  background: rgba(0,0,0,0.95);
+  border: 1px solid #555;
+  color: #ccc;
+  font-size: clamp(4px, 0.8vw, 6px);
+  padding: 4px 6px;
+  z-index: 30;
+  line-height: 1.6;
+  pointer-events: none;
+  max-width: 25vw;
+  white-space: normal;
+}
+
+.stat-bar:hover .tooltip { display: block; }
+
+.stat-icon { font-size: clamp(8px, 1.4vw, 12px); }
+.bar-bg { width: clamp(30px, 5vw, 55px); height: clamp(4px, 0.8vh, 8px); background: #000; border: 1px solid #333; }
+.bar-fill { height: 100%; transition: width 0.5s ease; }
+.bar-fill.grades { background: #3498db; }
+.bar-fill.clout { background: #e74c3c; }
+.bar-fill.energy { background: #f1c40f; }
+.bar-fill.parent { background: #2ecc71; }
+.bar-fill.trouble { background: #9b59b6; }
+.bar-fill.cash { background: #e67e22; }
+.bar-fill.drive { background: #ff69b4; }
+
+.stat-num {
+  font-size: clamp(4px, 0.7vw, 6px);
+  color: #888;
+  min-width: 14px;
+  text-align: right;
+}
+
+#day-counter {
+  position: absolute;
+  top: 0.8vh; left: 50%; transform: translateX(-50%);
+  font-size: clamp(5px, 1vw, 8px); z-index: 10;
+  text-shadow: 1px 1px 0 #000, -1px -1px 0 #000;
+  color: #f1c40f;
+  white-space: nowrap;
+}
+
+/* TOP BUTTONS */
+#top-buttons {
+  position: absolute;
+  top: 0.8vh; right: 1vw;
+  z-index: 20;
+  display: flex;
+  gap: 0.5vw;
+}
+
+.top-btn {
+  background: rgba(0,0,0,0.7);
+  border: 1px solid #555;
+  color: #aaa;
+  font-family: 'Press Start 2P', monospace;
+  font-size: clamp(6px, 1.2vw, 10px);
+  padding: 0.5vh 0.8vw;
+  cursor: pointer;
+  transition: all 0.2s;
+  -webkit-tap-highlight-color: transparent;
+}
+.top-btn:hover, .top-btn:active { border-color: #ff69b4; color: #ff69b4; }
+
+/* CREW */
+#crew {
+  position: absolute;
+  top: 3.5vh; right: 1vw;
+  z-index: 10;
+  display: flex;
+  gap: 3px;
+  flex-wrap: wrap;
+  max-width: 25vw;
+  justify-content: flex-end;
+}
+
+.crew-icon {
+  width: clamp(16px, 2.5vw, 24px); height: clamp(16px, 2.5vw, 24px);
+  background: rgba(0,0,0,0.6);
+  border: 1px solid #e74c3c;
+  border-radius: 2px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: clamp(9px, 1.4vw, 13px);
+  cursor: pointer;
+  position: relative;
+}
+.crew-icon.romantic { border-color: #ff69b4; }
+.crew-icon.dating { border-color: #ff69b4; box-shadow: 0 0 6px rgba(255,105,180,0.6); }
+
+/* TEXT PANEL — takes up ~62% */
+#text-panel {
+  flex: 1;
+  background: linear-gradient(to bottom, rgba(10,10,10,0.97), #0a0a0a);
+  border-top: 2px solid #16213e;
+  padding: 1.2vh 1.5vw;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+#narrative {
+  flex: 1;
+  font-size: clamp(7px, 1.1vw, 10px);
+  line-height: 1.8;
+  overflow-y: auto;
+  color: #c0c0c0;
+  margin-bottom: 0.5vh;
+  scrollbar-width: thin;
+  scrollbar-color: #333 #111;
+  min-height: 0;
+  -webkit-overflow-scrolling: touch;
+}
+#narrative::-webkit-scrollbar { width: 4px; }
+#narrative::-webkit-scrollbar-track { background: #111; }
+#narrative::-webkit-scrollbar-thumb { background: #333; }
+
+.stat-line {
+  color: #666;
+  font-size: clamp(5px, 0.9vw, 7px);
+  line-height: 2;
+  border-left: 2px solid #333;
+  padding-left: 6px;
+  margin-top: 2px;
+}
+.stat-line .up { color: #2ecc71; }
+.stat-line .down { color: #e74c3c; }
+
+#suggestions {
+  display: flex;
+  gap: 0.5vw;
+  margin-bottom: 0.5vh;
+  flex-wrap: wrap;
+}
+
+.suggestion-btn {
+  background: rgba(60, 30, 30, 0.4);
+  border: 1px solid #5a2d2d;
+  color: #9a6a6a;
+  font-family: 'Press Start 2P', monospace;
+  font-size: clamp(5px, 0.85vw, 7px);
+  padding: 0.5vh 0.8vw;
+  cursor: pointer;
+  transition: all 0.2s;
+  max-width: 35vw;
+  text-align: left;
+  -webkit-tap-highlight-color: transparent;
+}
+.suggestion-btn:hover, .suggestion-btn:active {
+  background: rgba(231, 76, 60, 0.15);
+  border-color: #e74c3c;
+  color: #e74c3c;
+}
+
+#input-row { display: flex; gap: 0.6vw; align-items: center; }
+
+#player-input {
+  flex: 1;
+  background: rgba(0,0,0,0.6);
+  border: 1px solid #5a2d2d;
+  color: #e0e0e0;
+  font-family: 'Press Start 2P', monospace;
+  font-size: clamp(7px, 1.1vw, 10px);
+  padding: 0.8vh 1vw;
+  outline: none;
+  transition: border-color 0.2s;
+  border-radius: 0;
+  -webkit-appearance: none;
+}
+#player-input:focus { border-color: #e74c3c; }
+#player-input::placeholder { color: #3a2020; }
+
+#submit-btn {
+  background: rgba(231, 76, 60, 0.15);
+  border: 1px solid #e74c3c;
+  color: #e74c3c;
+  font-family: 'Press Start 2P', monospace;
+  font-size: clamp(6px, 1vw, 9px);
+  padding: 0.8vh 1.5vw;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.2s;
+  -webkit-tap-highlight-color: transparent;
+}
+#submit-btn:hover { background: rgba(231, 76, 60, 0.3); }
+#submit-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+
+#loading { display: none; font-size: clamp(5px, 0.9vw, 8px); color: #e74c3c; padding: 0.3vh 0; text-align: center; }
+#loading.active { display: block; }
+@keyframes dots { 0%, 20% { content: '.'; } 40% { content: '..'; } 60%, 100% { content: '...'; } }
+#loading::after { content: ''; animation: dots 1.5s infinite; }
+
+/* NOTIFICATION */
+#notification {
+  position: absolute;
+  top: 10vh; left: 50%; transform: translateX(-50%);
+  background: rgba(0,0,0,0.9);
+  border: 1px solid #f1c40f;
+  color: #f1c40f;
+  font-size: clamp(5px, 0.9vw, 8px);
+  padding: 0.8vh 1.5vw;
+  z-index: 50;
+  display: none;
+  text-align: center;
+  max-width: 80%;
+  animation: fadeNotif 2.5s forwards;
+}
+@keyframes fadeNotif {
+  0% { opacity: 0; transform: translateX(-50%) translateY(-10px); }
+  15% { opacity: 1; transform: translateX(-50%) translateY(0); }
+  85% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+/* ============ TITLE SCREEN ============ */
+#title-screen {
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: #0a0a0a;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+
+#title-screen h1 {
+  font-size: clamp(16px, 4vw, 32px);
+  color: #e74c3c;
+  text-shadow: 0 0 20px rgba(231,76,60,0.5), 0 4px 0 #a93226;
+  margin-bottom: 1vh;
+  letter-spacing: 0.8vw;
+}
+
+#title-screen .subtitle {
+  font-size: clamp(5px, 1vw, 8px);
+  color: #555; margin-bottom: 4vh; letter-spacing: 2px;
+}
+
+#title-screen .start-btn {
+  font-family: 'Press Start 2P', monospace;
+  font-size: clamp(8px, 1.5vw, 12px);
+  color: #e74c3c;
+  background: none;
+  border: 2px solid #e74c3c;
+  padding: 1.5vh 4vw;
+  cursor: pointer;
+  animation: pulse 2s ease-in-out infinite;
+  margin: 0.5vh;
+  -webkit-tap-highlight-color: transparent;
+}
+#title-screen .start-btn:hover { background: rgba(231,76,60,0.2); }
+
+.load-btn {
+  font-family: 'Press Start 2P', monospace;
+  font-size: clamp(5px, 1vw, 8px);
+  color: #888;
+  background: none;
+  border: 1px solid #444;
+  padding: 1vh 2.5vw;
+  cursor: pointer;
+  margin-top: 1vh;
+}
+.load-btn:hover { border-color: #888; color: #ccc; }
+
+@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+
+#title-art {
+  font-size: clamp(8px, 1.5vw, 12px); line-height: 1.3; color: #5a2020;
+  margin-bottom: 2vh; white-space: pre; text-align: center;
+}
+
+/* ENDING */
+#ending-screen {
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.95);
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  padding: 3vh 3vw;
+  text-align: center;
+  overflow-y: auto;
+}
+#ending-screen h2 { font-size: clamp(10px, 2.5vw, 18px); color: #e74c3c; margin-bottom: 1.5vh; }
+#ending-screen .ending-text { font-size: clamp(6px, 1vw, 8px); line-height: 2; color: #888; max-width: 80%; margin-bottom: 2vh; white-space: pre-wrap; }
+#ending-screen .stats-summary { font-size: clamp(5px, 0.8vw, 7px); color: #555; margin-bottom: 2vh; line-height: 2.2; }
+#ending-screen button {
+  font-family: 'Press Start 2P', monospace;
+  font-size: clamp(6px, 1vw, 9px); color: #e74c3c; background: none;
+  border: 1px solid #e74c3c; padding: 1vh 2.5vw; cursor: pointer;
+  margin: 0.5vh;
+}
+
+@keyframes dangerPulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+
+/* ============ OVERLAY MENUS ============ */
+.menu-overlay {
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.94);
+  z-index: 90;
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  padding: 2vh 2vw;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+.menu-overlay.active { display: flex; }
+
+.menu-overlay h2 {
+  font-size: clamp(9px, 1.8vw, 14px);
+  margin-bottom: 1.5vh;
+  text-shadow: 0 0 12px rgba(255,105,180,0.4);
+}
+
+.menu-close {
+  font-family: 'Press Start 2P', monospace;
+  font-size: clamp(6px, 1vw, 9px);
+  color: #888; background: none;
+  border: 1px solid #555;
+  padding: 1vh 2vw;
+  cursor: pointer;
+  margin-top: 1.5vh;
+  flex-shrink: 0;
+}
+.menu-close:hover { border-color: #ff69b4; color: #ff69b4; }
+
+/* LOVE MENU */
+.love-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1vh 1vw;
+  width: 100%;
+  max-width: 95%;
+}
+
+.love-card {
+  background: rgba(30,15,30,0.8);
+  border: 1px solid #3a1a3a;
+  padding: 1vh 1vw;
+  transition: all 0.2s;
+}
+.love-card:hover { border-color: #ff69b4; }
+.love-card.met { border-color: #ff69b4; }
+.love-card.dating-card { border-color: #ff69b4; box-shadow: 0 0 10px rgba(255,105,180,0.3); }
+.love-card.unmet { opacity: 0.45; }
+
+.love-card-header { display: flex; align-items: center; gap: 0.5vw; margin-bottom: 0.5vh; }
+.love-card-emoji { font-size: clamp(14px, 2.2vw, 20px); }
+.love-card-name { font-size: clamp(6px, 1vw, 9px); color: #ff69b4; }
+.love-card-diff { font-size: clamp(4px, 0.6vw, 6px); color: #888; margin-left: auto; }
+.love-card-vibe { font-size: clamp(4px, 0.7vw, 6px); color: #777; line-height: 1.6; margin-bottom: 0.3vh; }
+.love-card-status { font-size: clamp(5px, 0.8vw, 7px); }
+.love-card-status.status-dating { color: #ff69b4; }
+.love-card-status.status-met { color: #f1c40f; }
+.love-card-status.status-unknown { color: #333; }
+
+.love-card-talk {
+  font-family: 'Press Start 2P', monospace;
+  font-size: clamp(4px, 0.6vw, 6px);
+  color: #ff69b4;
+  background: rgba(255,105,180,0.1);
+  border: 1px solid rgba(255,105,180,0.3);
+  padding: 0.3vh 0.6vw;
+  cursor: pointer;
+  margin-top: 0.5vh;
+  display: none;
+}
+.love-card.met .love-card-talk { display: inline-block; }
+
+/* AURA MENU */
+.aura-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 1vh;
+  width: 100%;
+  max-width: 95%;
+}
+
+.aura-card {
+  background: rgba(20,20,40,0.8);
+  border: 1px solid #333;
+  padding: 1vh 1.2vw;
+  transition: all 0.2s;
+}
+.aura-card.active-aura { border-color: #f1c40f; box-shadow: 0 0 10px rgba(241,196,15,0.2); }
+
+.aura-card-header { display: flex; align-items: center; gap: 0.8vw; margin-bottom: 0.5vh; }
+.aura-card-stages { display: flex; gap: 0.4vw; align-items: center; margin-bottom: 0.5vh; flex-wrap: wrap; }
+
+.aura-stage-pip {
+  padding: 0.3vh 0.6vw;
+  font-size: clamp(4px, 0.7vw, 7px);
+  border: 1px solid #333;
+  background: rgba(0,0,0,0.5);
+  color: #555;
+}
+.aura-stage-pip.reached { border-color: #f1c40f; color: #f1c40f; background: rgba(241,196,15,0.1); }
+.aura-stage-pip.current-stage { border-color: #f1c40f; color: #f1c40f; background: rgba(241,196,15,0.25); box-shadow: 0 0 6px rgba(241,196,15,0.3); }
+
+.aura-bar-bg { width: 100%; height: clamp(4px, 0.6vh, 7px); background: #111; border: 1px solid #333; }
+.aura-bar-fill { height: 100%; transition: width 0.5s ease; }
+
+.aura-perk { font-size: clamp(4px, 0.65vw, 6px); color: #888; margin-top: 0.4vh; line-height: 1.8; }
+.aura-perk .locked { color: #444; }
+.aura-perk .unlocked { color: #2ecc71; }
+
+/* PAUSE */
+.pause-btn {
+  font-family: 'Press Start 2P', monospace;
+  font-size: clamp(6px, 1.1vw, 9px);
+  color: #ccc;
+  background: rgba(30,30,30,0.8);
+  border: 1px solid #555;
+  padding: 1.2vh 3vw;
+  cursor: pointer;
+  width: min(260px, 60vw);
+  text-align: center;
+  transition: all 0.2s;
+  margin: 0.4vh 0;
+}
+.pause-btn:hover { border-color: #e74c3c; color: #e74c3c; }
+
+.save-slot-btn {
+  font-family: 'Press Start 2P', monospace;
+  font-size: clamp(5px, 0.8vw, 7px);
+  color: #aaa;
+  background: rgba(20,20,40,0.8);
+  border: 1px solid #333;
+  padding: 1vh 1.5vw;
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.2s;
+  width: min(260px, 60vw);
+  margin: 0.3vh 0;
+}
+.save-slot-btn:hover { border-color: #f1c40f; color: #f1c40f; }
+.save-slot-btn .slot-info { color: #555; font-size: clamp(4px, 0.6vw, 5px); display: block; margin-top: 0.3vh; }
+
+/* ============ MOBILE SPECIFIC ============ */
+@media (max-width: 600px) {
+  #game-wrapper { width: 100vw; height: 100vh; }
+  #game { border: none; }
+  #scene { flex: 0 0 30%; }
+
+  .love-grid { grid-template-columns: 1fr; }
+
+  #suggestions { flex-direction: column; gap: 0.5vh; }
+  .suggestion-btn { max-width: 100%; font-size: clamp(6px, 2.5vw, 9px); padding: 1vh 2vw; }
+
+  #player-input { font-size: clamp(8px, 3vw, 12px); padding: 1.2vh 2vw; }
+  #submit-btn { font-size: clamp(7px, 2.5vw, 10px); padding: 1.2vh 3vw; }
+
+  .top-btn { font-size: clamp(8px, 3vw, 12px); padding: 1vh 2vw; }
+
+  .stat-icon { font-size: clamp(10px, 3.5vw, 14px); }
+  .bar-bg { width: clamp(35px, 12vw, 60px); height: clamp(5px, 1.5vw, 8px); }
+  .stat-num { font-size: clamp(5px, 1.8vw, 7px); }
+
+  #narrative { font-size: clamp(8px, 2.8vw, 11px); }
+  .stat-line { font-size: clamp(6px, 2.2vw, 8px); }
+
+  #day-counter { font-size: clamp(5px, 2vw, 8px); }
+
+  .menu-overlay h2 { font-size: clamp(10px, 3.5vw, 16px); }
+  .love-card-emoji { font-size: clamp(16px, 6vw, 24px); }
+  .love-card-name { font-size: clamp(7px, 2.5vw, 10px); }
+  .love-card-vibe { font-size: clamp(5px, 2vw, 7px); }
+  .love-card-status { font-size: clamp(6px, 2.2vw, 8px); }
+  .love-card-talk { font-size: clamp(5px, 2vw, 7px); padding: 0.8vh 2vw; }
+
+  .aura-stage-pip { font-size: clamp(5px, 2vw, 7px); padding: 0.5vh 1.5vw; }
+  .aura-perk { font-size: clamp(5px, 1.8vw, 7px); }
+
+  .pause-btn { font-size: clamp(7px, 2.5vw, 10px); width: 80vw; padding: 1.5vh 4vw; }
+  .save-slot-btn { width: 80vw; font-size: clamp(6px, 2vw, 8px); }
+}
+
+/* TABLET */
+@media (min-width: 601px) and (max-width: 1024px) {
+  #game-wrapper { width: 95vw; height: 95vh; }
+  .love-grid { grid-template-columns: 1fr 1fr; }
+  .suggestion-btn { font-size: clamp(6px, 1.2vw, 8px); }
+}
+</style>
+</head>
+<body>
+<div id="game-wrapper">
+<div id="game">
+  <!-- TITLE -->
+  <div id="title-screen">
+    <div id="title-art">
+  📓  🏫  🎒  🛹  📱
+  🚌  🏀  🎮  💀  🔔
+    </div>
+    <h1>HALL PASS</h1>
+    <div class="subtitle">SURVIVE MIDDLE SCHOOL — AN AI ADVENTURE</div>
+    <button class="start-btn" onclick="startGame()">NEW GAME</button>
+    <button class="load-btn" onclick="showLoadMenu()">LOAD SAVE</button>
+  </div>
+
+  <!-- GAME UI -->
+  <div id="scene"><canvas id="bg-canvas" width="400" height="150"></canvas></div>
+
+  <div id="hud">
+    <div class="stat-bar"><span class="stat-icon">📚</span><div class="bar-bg"><div class="bar-fill grades" id="grades-bar"></div></div><span class="stat-num" id="grades-num">60</span><span class="tooltip">GRADES — Below 30 = parents called. Study or cheat.</span></div>
+    <div class="stat-bar"><span class="stat-icon">🔥</span><div class="bar-bg"><div class="bar-fill clout" id="clout-bar"></div></div><span class="stat-num" id="clout-num">20</span><span class="tooltip">CLOUT — Social rep. Who you hang with matters.</span></div>
+    <div class="stat-bar"><span class="stat-icon">⚡</span><div class="bar-bg"><div class="bar-fill energy" id="energy-bar"></div></div><span class="stat-num" id="energy-num">90</span><span class="tooltip">ENERGY — Drains with actions. Recharges overnight.</span></div>
+    <div class="stat-bar"><span class="stat-icon">💕</span><div class="bar-bg"><div class="bar-fill drive" id="drive-bar"></div></div><span class="stat-num" id="drive-num">50</span><span class="tooltip">DRIVE — Romantic mojo. Up with success, down with rejection.</span></div>
+    <div class="stat-bar"><span class="stat-icon">👨‍👩‍👦</span><div class="bar-bg"><div class="bar-fill parent" id="parent-bar"></div></div><span class="stat-num" id="parent-num">80</span><span class="tooltip">PARENTS — Below 20 = grounded.</span></div>
+    <div class="stat-bar"><span class="stat-icon">💀</span><div class="bar-bg"><div class="bar-fill trouble" id="trouble-bar"></div></div><span class="stat-num" id="trouble-num">5</span><span class="tooltip">TROUBLE — Above 80 = suspended. 95+ = expelled.</span></div>
+    <div class="stat-bar"><span class="stat-icon">💰</span><div class="bar-bg"><div class="bar-fill cash" id="cash-bar"></div></div><span class="stat-num" id="cash-num">30</span><span class="tooltip">CASH — $15/week allowance. Hustle for more.</span></div>
+  </div>
+
+  <div id="day-counter">WEEK 1 — MONDAY MORNING</div>
+
+  <div id="top-buttons">
+    <button class="top-btn" onclick="toggleLoveMenu()" title="Love Interests">💕</button>
+    <button class="top-btn" onclick="toggleAuraMenu()" title="Aura">✨</button>
+    <button class="top-btn" onclick="togglePauseMenu()" title="Menu">☰</button>
+  </div>
+
+  <div id="crew"></div>
+  <div id="notification"></div>
+
+  <div id="text-panel">
+    <div id="narrative"></div>
+    <div id="loading">The bell rings</div>
+    <div id="suggestions"></div>
+    <div id="input-row">
+      <input type="text" id="player-input" placeholder="What do you do?" autocomplete="off" />
+      <button id="submit-btn" onclick="submitAction()">DO IT</button>
+    </div>
+  </div>
+
+  <!-- LOVE MENU -->
+  <div id="love-menu" class="menu-overlay">
+    <h2 style="color:#ff69b4">💕 LOVE INTERESTS 💕</h2>
+    <div class="love-grid" id="love-grid"></div>
+    <button class="menu-close" onclick="toggleLoveMenu()">CLOSE</button>
+  </div>
+
+  <!-- AURA MENU -->
+  <div id="aura-menu" class="menu-overlay">
+    <h2 style="color:#f1c40f">✨ AURA PATHS ✨</h2>
+    <div class="aura-grid" id="aura-grid"></div>
+    <button class="menu-close" onclick="toggleAuraMenu()">CLOSE</button>
+  </div>
+
+  <!-- PAUSE MENU -->
+  <div id="pause-overlay" class="menu-overlay" style="justify-content:center;">
+    <h2 style="color:#e74c3c">☰ MENU</h2>
+    <button class="pause-btn" onclick="togglePauseMenu()">▸ RESUME</button>
+    <button class="pause-btn" onclick="saveGame()">💾 SAVE GAME</button>
+    <div id="save-slots" style="display:none;flex-direction:column;align-items:center;"></div>
+    <button class="pause-btn" onclick="showLoadInGame()">📂 LOAD GAME</button>
+    <div id="load-slots" style="display:none;flex-direction:column;align-items:center;"></div>
+    <button class="pause-btn" onclick="confirmRestart()">🔄 RESTART</button>
+  </div>
+
+  <!-- ENDING -->
+  <div id="ending-screen">
+    <h2 id="ending-title"></h2>
+    <div class="ending-text" id="ending-text"></div>
+    <div class="stats-summary" id="ending-stats"></div>
+    <button onclick="location.reload()">PLAY AGAIN</button>
+  </div>
+</div>
+</div>
+
+<script>
+// ============================================================
+// HALL PASS v4 — RESPONSIVE + MOBILE + VERCEL READY
+// ============================================================
+
+const API_KEY = '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';
+const MODEL = 'claude-sonnet-4-5-20250929';
+const API_URL = 'https://api.anthropic.com/v1/messages';
+async function apiCall(system, messages) {
+  const resp = await fetch(API_URL, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': API_KEY,
+      'anthropic-version': '2023-06-01',
+      'anthropic-dangerous-direct-browser-access': 'true',
+    },
+    body: JSON.stringify({ model: MODEL, max_tokens: 1024, system, messages }),
+  });
+  if (!resp.ok) throw new Error(`API ${resp.status}: ${await resp.text()}`);
+  const data = await resp.json();
+  return data.content[0].text;
+}
+
+const STATE = {
+  grades: 60, clout: 20, energy: 90, drive: 50,
+  parentApproval: 80, trouble: 5, cash: 30,
+  week: 1, dayOfWeek: 0, timeOfDay: 0,
+  crew: [], interests: [], dating: null,
+  inventory: [], flags: {}, location: 'hallway',
+  aura: { type: 'newkid', stage: 1, name: 'New Kid', emoji: '😐' },
+  gameOver: false, relationships: {}, activePerks: [],
+};
+
+const STAT_LABELS = {
+  grades: { icon: '📚', label: 'GPA' }, clout: { icon: '🔥', label: 'CLOUT' },
+  energy: { icon: '⚡', label: 'ENERGY' }, drive: { icon: '💕', label: 'DRIVE' },
+  parentApproval: { icon: '👨‍👩‍👦', label: 'PARENTS' }, trouble: { icon: '💀', label: 'TROUBLE' },
+  cash: { icon: '💰', label: 'CASH' },
+};
+
+const CREW = {
+  tyler: { name: 'Tyler', emoji: '🛹', trait: 'skater — parties, gum, zero fear' },
+  deshawn: { name: 'DeShawn', emoji: '🏀', trait: 'athlete — popular, jacked, VIP access' },
+  riley: { name: 'Riley', emoji: '🎮', trait: 'gamer — smart but lazy, wingman' },
+  marcus: { name: 'Marcus', emoji: '📓', trait: 'nerd — tutoring god, homework plug' },
+  jazz: { name: 'Jazz', emoji: '🎸', trait: 'band kid — fearless, chaos agent' },
+};
+
+const INTERESTS = {
+  bella: { name: 'Bella', emoji: '💃', vibe: 'cheerleader captain — hot, popular, sarcasm fluent', difficulty: 9 },
+  mia: { name: 'Mia', emoji: '🎨', vibe: 'artsy girl — paints in class, mysterious', difficulty: 5 },
+  zoe: { name: 'Zoe', emoji: '📱', vibe: 'influencer — 10k followers, will post your Ls', difficulty: 7 },
+  luna: { name: 'Luna', emoji: '🌙', vibe: 'goth girl — tarot, all black, secretly hilarious', difficulty: 6 },
+  ashley: { name: 'Ashley', emoji: '📖', vibe: 'honor student — class pres, secretly wild', difficulty: 7 },
+  kira: { name: 'Kira', emoji: '⚽', vibe: 'soccer star — tomboy energy, easy to talk to', difficulty: 4 },
+  destiny: { name: 'Destiny', emoji: '🎤', vibe: 'drama kid — dramatic about EVERYTHING, loyal', difficulty: 5 },
+  sam: { name: 'Sam', emoji: '🎧', vibe: 'quiet girl — headphones in, music god, shy', difficulty: 6 },
+  jordan: { name: 'Jordan', emoji: '🏋️', vibe: 'gym bro — protein shakes, sweet, emotional', difficulty: 4 },
+  kai: { name: 'Kai', emoji: '🎭', vibe: 'theatre kid — flirty, will serenade you', difficulty: 5 },
+};
+
+const AURAS = {
+  scholar: {
+    color: '#3498db',
+    stages: [
+      { name: 'Bookworm', emoji: '📖', threshold: 0, perk: null },
+      { name: 'Honor Student', emoji: '🎓', threshold: 40, perk: 'Study gives +50% grades boost' },
+      { name: 'Valedictorian', emoji: '🏆', threshold: 75, perk: 'Teachers give second chances; academic trouble halved' },
+    ],
+    calc: () => (STATE.grades * 2 + (100 - STATE.trouble)) / 3,
+  },
+  royal: {
+    color: '#f1c40f',
+    stages: [
+      { name: 'New Kid', emoji: '😐', threshold: 0, perk: null },
+      { name: 'Social Climber', emoji: '📈', threshold: 40, perk: 'Meeting people gives +3 clout bonus' },
+      { name: 'Prom Royalty', emoji: '👑', threshold: 75, perk: 'Romance difficulty -2; magnetic presence' },
+    ],
+    calc: () => (STATE.clout * 2 + STATE.drive + (STATE.crew.length + STATE.interests.length) * 5) / 3,
+  },
+  rebel: {
+    color: '#e74c3c',
+    stages: [
+      { name: 'Class Skipper', emoji: '🚬', threshold: 0, perk: null },
+      { name: 'Bad Kid', emoji: '😈', threshold: 40, perk: 'Risky actions give +5 clout always' },
+      { name: 'Punk Legend', emoji: '🔥', threshold: 75, perk: 'Talk out of detention once per week' },
+    ],
+    calc: () => (STATE.trouble * 2 + (100 - STATE.parentApproval) + STATE.clout) / 3,
+  },
+  jester: {
+    color: '#9b59b6',
+    stages: [
+      { name: 'Wisecracker', emoji: '😏', threshold: 0, perk: null },
+      { name: 'Class Clown', emoji: '🤡', threshold: 40, perk: 'Jokes defuse tension; social penalties halved' },
+      { name: 'Comedy God', emoji: '🎪', threshold: 75, perk: 'Everyone loves you; social energy cost halved' },
+    ],
+    calc: () => (STATE.clout + STATE.trouble * 0.5 + STATE.drive * 0.5 + STATE.crew.length * 8) / 2.5,
+  },
+  shadow: {
+    color: '#7f8c8d',
+    stages: [
+      { name: 'Quiet Kid', emoji: '🎧', threshold: 0, perk: null },
+      { name: 'Lone Wolf', emoji: '🐺', threshold: 40, perk: 'Solo study 2x effective; notice hidden things' },
+      { name: 'Enigma', emoji: '🌑', threshold: 75, perk: 'Mystery aura attracts difficult interests' },
+    ],
+    calc: () => ((100 - STATE.clout) + Math.max(STATE.grades, STATE.cash)) / 2,
+  },
+  hustler: {
+    color: '#e67e22',
+    stages: [
+      { name: 'Side Hustle', emoji: '💵', threshold: 0, perk: null },
+      { name: 'Entrepreneur', emoji: '💼', threshold: 40, perk: 'Cash gains +50%; always find the deal' },
+      { name: 'Young Mogul', emoji: '🤑', threshold: 75, perk: 'Spend $10 to boost any stat by 5' },
+    ],
+    calc: () => (STATE.cash * 2.5 + STATE.clout * 0.5) / 3,
+  },
+};
+
+function calculateAura() {
+  let bestType = 'royal', bestScore = 0;
+  for (const [type, aura] of Object.entries(AURAS)) {
+    const score = aura.calc();
+    if (score > bestScore) { bestScore = score; bestType = type; }
+  }
+  const aura = AURAS[bestType];
+  let stage = 0;
+  for (let i = aura.stages.length - 1; i >= 0; i--) { if (bestScore >= aura.stages[i].threshold) { stage = i; break; } }
+  const newAura = { type: bestType, stage: stage + 1, name: aura.stages[stage].name, emoji: aura.stages[stage].emoji, score: Math.round(bestScore) };
+  const evolved = STATE.aura.type !== newAura.type || STATE.aura.stage !== newAura.stage;
+  STATE.aura = newAura;
+  STATE.activePerks = [];
+  for (const [type, a] of Object.entries(AURAS)) {
+    const sc = a.calc();
+    for (let i = a.stages.length - 1; i >= 0; i--) {
+      if (sc >= a.stages[i].threshold && a.stages[i].perk) { STATE.activePerks.push({ type, stage: i + 1, perk: a.stages[i].perk }); break; }
+    }
+  }
+  if (evolved && STATE.aura.name !== 'New Kid') showNotification(`✨ AURA: ${newAura.emoji} ${newAura.name}!`);
+  return newAura;
+}
+
+const DAYS = ['MONDAY','TUESDAY','WEDNESDAY','THURSDAY','FRIDAY','SATURDAY','SUNDAY'];
+const TIMES = ['MORNING','LUNCH','AFTERNOON','EVENING','NIGHT'];
+let conversationHistory = [];
+
+// ============================================================
+// RENDERING
+// ============================================================
+const canvas = document.getElementById('bg-canvas');
+const ctx = canvas.getContext('2d');
+
+function drawScene(loc) {
+  const w = 400, h = 150;
+  ctx.clearRect(0, 0, w, h);
+  let sky1, sky2;
+  if (STATE.timeOfDay === 4) { sky1 = '#0a0a1a'; sky2 = '#0d0d2a'; }
+  else if (STATE.timeOfDay === 3) { sky1 = '#4a2a3a'; sky2 = '#2a1a2a'; }
+  else { sky1 = '#5a8acc'; sky2 = '#88bbee'; }
+  const grad = ctx.createLinearGradient(0, 0, 0, h);
+  grad.addColorStop(0, sky1); grad.addColorStop(1, sky2);
+  ctx.fillStyle = grad; ctx.fillRect(0, 0, w, h);
+  ctx.fillStyle = '#4a4a4a'; ctx.fillRect(0, 115, w, 35);
+
+  if (loc?.includes('hall') || loc?.includes('class') || loc?.includes('librar') || loc?.includes('principal')) {
+    ctx.fillStyle = '#8b4513'; ctx.fillRect(50, 50, 300, 65);
+    ctx.fillStyle = '#87ceeb';
+    for (let i = 0; i < 6; i++) { ctx.fillRect(70 + i * 45, 62, 18, 16); ctx.fillRect(70 + i * 45, 85, 18, 12); }
+    ctx.fillStyle = '#5a3a1a'; ctx.fillRect(185, 80, 28, 35);
+    ctx.fillStyle = '#fff'; ctx.font = '5px sans-serif'; ctx.fillText('WESTFIELD MIDDLE', 145, 58);
+  }
+  if (loc?.includes('cafe')) { ctx.fillStyle = '#8b4513'; ctx.fillRect(50, 55, 300, 60); ctx.fillStyle = '#c0c0c0'; for (let i = 0; i < 4; i++) { ctx.fillRect(80 + i * 70, 85, 38, 3); ctx.fillRect(95 + i * 70, 88, 3, 12); } }
+  if (loc?.includes('gym')) { ctx.fillStyle = '#8b6914'; ctx.fillRect(50, 55, 300, 60); ctx.strokeStyle = '#fff'; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(200, 85, 16, 0, Math.PI * 2); ctx.stroke(); }
+  if (loc?.includes('bath')) { ctx.fillStyle = '#d0d0c0'; ctx.fillRect(50, 55, 300, 60); }
+  if (loc?.includes('parking') || loc?.includes('lot')) { ctx.fillStyle = '#333'; ctx.fillRect(0, 100, w, 50); ['#e74c3c','#3498db','#2ecc71','#f39c12','#9b59b6'].forEach((c,i) => { ctx.fillStyle = c; ctx.fillRect(30+i*75, 105, 36, 15); }); }
+  if (loc?.includes('home')) { ctx.fillStyle = '#8b7355'; ctx.fillRect(120, 55, 160, 60); ctx.fillStyle = '#5a3a2a'; ctx.beginPath(); ctx.moveTo(100, 55); ctx.lineTo(200, 22); ctx.lineTo(300, 55); ctx.fill(); ctx.fillStyle = STATE.timeOfDay >= 3 ? '#f1c40f' : '#87ceeb'; ctx.fillRect(145, 68, 22, 16); ctx.fillRect(230, 68, 22, 16); ctx.fillStyle = '#2d5a2d'; ctx.fillRect(0, 115, w, 35); }
+  if (loc?.includes('mall')) { ctx.fillStyle = '#c0c0c0'; ctx.fillRect(30, 45, 340, 70); ctx.fillStyle = '#e74c3c'; ctx.font = '7px sans-serif'; ctx.fillText('WESTFIELD MALL', 140, 58); }
+  if (loc?.includes('park')) { ctx.fillStyle = '#2d5a2d'; ctx.fillRect(0, 100, w, 50); for (let i = 0; i < 4; i++) { ctx.fillStyle = '#3a2a0a'; ctx.fillRect(60+i*90,70,4,30); ctx.fillStyle = '#1a6a1a'; ctx.beginPath(); ctx.arc(62+i*90,62,15,0,Math.PI*2); ctx.fill(); } }
+  if (loc?.includes('party')) { ctx.fillStyle = '#1a1a2a'; ctx.fillRect(50, 45, 300, 70); ['#e74c3c','#3498db','#2ecc71','#f39c12','#9b59b6','#ff69b4'].forEach((c,i) => { ctx.fillStyle = c; ctx.globalAlpha = 0.3+Math.random()*0.4; ctx.fillRect(60+(i*97%280),50+(i*37%55),8,8); }); ctx.globalAlpha = 1; }
+  if (STATE.timeOfDay === 4) { ctx.fillStyle = '#fff'; for (let i = 0; i < 15; i++) { ctx.globalAlpha = 0.3+Math.random()*0.7; ctx.fillRect((i*97+30)%w,(i*53+5)%40,1,1); } ctx.globalAlpha = 1; }
+  const schoolLocs = ['hall','class','cafe','gym','librar'];
+  const girlEmojis = ['💃','🎨','📱','🌙','📖','⚽','🎤','🎧','🏋️','🎭'];
+  if (schoolLocs.some(s => loc?.includes(s))) { const positions = [[320,108],[280,112],[350,105],[160,110],[220,108],[100,112]]; const seed = STATE.dayOfWeek*10+STATE.timeOfDay; ctx.globalAlpha = 0.6; for (let i = 0; i < 5; i++) { ctx.font = '10px serif'; ctx.fillText(girlEmojis[(seed+i*7)%10], positions[(seed+i*3)%positions.length][0], positions[(seed+i*3)%positions.length][1]); } ctx.globalAlpha = 1; }
+  [...STATE.crew, ...STATE.interests].forEach((c, i) => { ctx.font = '14px serif'; ctx.fillText(c.emoji, 50 + i * 28, 100); });
+}
+
+// ============================================================
+// UI
+// ============================================================
+function updateHUD() {
+  for (const [key, val] of Object.entries({ grades: STATE.grades, clout: STATE.clout, energy: STATE.energy, drive: STATE.drive, parentApproval: STATE.parentApproval, trouble: STATE.trouble, cash: STATE.cash })) {
+    const c = Math.max(0, Math.min(100, val));
+    const barId = key === 'parentApproval' ? 'parent' : key;
+    document.getElementById(`${barId}-bar`).style.width = c + '%';
+    document.getElementById(`${barId}-num`).textContent = c;
+  }
+  document.getElementById('day-counter').textContent = `WEEK ${STATE.week} — ${DAYS[STATE.dayOfWeek]} ${TIMES[STATE.timeOfDay]}`;
+  calculateAura();
+  const tb = document.getElementById('trouble-bar');
+  if (STATE.trouble >= 80) { tb.style.background = '#e74c3c'; tb.style.animation = 'dangerPulse 0.5s infinite'; }
+  else { tb.style.background = STATE.trouble >= 60 ? '#e67e22' : '#9b59b6'; tb.style.animation = 'none'; }
+  const crewDiv = document.getElementById('crew');
+  crewDiv.innerHTML = '';
+  STATE.crew.forEach(c => { const el = document.createElement('div'); el.className = 'crew-icon'; el.textContent = c.emoji; crewDiv.appendChild(el); });
+  STATE.interests.forEach(c => { const el = document.createElement('div'); el.className = `crew-icon romantic${STATE.dating?.id === c.id ? ' dating' : ''}`; el.textContent = c.emoji; crewDiv.appendChild(el); });
+}
+
+function showNotification(text) {
+  const n = document.getElementById('notification');
+  n.textContent = text; n.style.display = 'block';
+  n.style.animation = 'none'; n.offsetHeight; n.style.animation = 'fadeNotif 2.5s forwards';
+  setTimeout(() => n.style.display = 'none', 2500);
+}
+
+function renderStatChanges(effects) {
+  if (!effects) return '';
+  const parts = [];
+  for (const [key, val] of Object.entries(effects)) {
+    if (val && val !== 0 && STAT_LABELS[key]) {
+      const info = STAT_LABELS[key];
+      parts.push(`<span class="${val > 0 ? 'up' : 'down'}">${info.icon} ${info.label} ${val > 0 ? '+' : ''}${val}</span>`);
+    }
+  }
+  return parts.length ? `<div class="stat-line">${parts.join('  ')}</div>` : '';
+}
+
+function checkDangerWarnings() {
+  const narr = document.getElementById('narrative');
+  let w = [];
+  if (STATE.trouble >= 80) w.push('⚠️ Suspension imminent!');
+  if (STATE.trouble >= 90) w.push('🚨 One wrong move = EXPELLED!');
+  if (STATE.parentApproval <= 25) w.push('⚠️ Parents furious!');
+  if (STATE.grades <= 30) w.push('⚠️ Grades tanking!');
+  if (STATE.energy <= 10) w.push('😴 Exhausted...');
+  if (w.length) { narr.innerHTML += '<br><span style="color:#e74c3c;font-size:inherit;">' + w.join(' | ') + '</span>'; narr.scrollTop = narr.scrollHeight; }
+}
+
+function typeText(text, cb) {
+  const narr = document.getElementById('narrative');
+  let existing = narr.innerHTML;
+  if (existing) existing += '<br><br>';
+  let i = 0, current = existing;
+  function type() {
+    if (i < text.length) { current += text[i] === '\n' ? '<br>' : text[i]; narr.innerHTML = current; narr.scrollTop = narr.scrollHeight; i++; setTimeout(type, 10); }
+    else if (cb) cb();
+  }
+  type();
+}
+
+function showSuggestions(suggestions) {
+  const div = document.getElementById('suggestions');
+  div.innerHTML = '';
+  if (!suggestions?.length) return;
+  suggestions.forEach(s => {
+    const btn = document.createElement('button');
+    btn.className = 'suggestion-btn';
+    btn.textContent = `▸ ${s}`;
+    btn.onclick = () => { document.getElementById('player-input').value = s; submitAction(); };
+    div.appendChild(btn);
+  });
+}
+
+function setLoading(on) {
+  document.getElementById('loading').classList.toggle('active', on);
+  document.getElementById('submit-btn').disabled = on;
+  document.getElementById('player-input').disabled = on;
+  if (!on) document.getElementById('player-input').focus();
+}
+
+// ============================================================
+// LOVE MENU
+// ============================================================
+function toggleLoveMenu() {
+  const m = document.getElementById('love-menu');
+  if (m.classList.contains('active')) { m.classList.remove('active'); return; }
+  renderLoveMenu(); m.classList.add('active');
+}
+function renderLoveMenu() {
+  const grid = document.getElementById('love-grid');
+  grid.innerHTML = '';
+  for (const [id, info] of Object.entries(INTERESTS)) {
+    const met = STATE.interests.some(c => c.id === id);
+    const isDating = STATE.dating?.id === id;
+    const rel = STATE.relationships[id] || 0;
+    const card = document.createElement('div');
+    card.className = `love-card ${isDating ? 'dating-card' : met ? 'met' : 'unmet'}`;
+    const barColor = isDating ? '#ff69b4' : met ? '#f1c40f' : '#333';
+    let status = '❓ Not met yet', statusCls = 'status-unknown';
+    if (isDating) { status = '💕 DATING'; statusCls = 'status-dating'; }
+    else if (met) { status = `💛 ${rel}% — ${rel >= 70 ? 'Into you' : rel >= 40 ? 'Friendly' : 'Acquaintance'}`; statusCls = 'status-met'; }
+    card.innerHTML = `<div class="love-card-header"><span class="love-card-emoji">${info.emoji}</span><span class="love-card-name">${met||isDating?info.name:'???'}</span><span class="love-card-diff">${met?'⭐'.repeat(Math.ceil(info.difficulty/3)):''}</span></div><div class="love-card-vibe">${met?info.vibe:'Haven\'t met yet...'}</div><div style="width:100%;height:4px;background:#111;margin:3px 0"><div style="width:${met?Math.max(5,rel):0}%;height:100%;background:${barColor};transition:width .5s"></div></div><div class="love-card-status ${statusCls}">${status}</div><button class="love-card-talk" onclick="talkToInterest('${id}')">💬 TALK</button>`;
+    grid.appendChild(card);
+  }
+}
+function talkToInterest(id) { toggleLoveMenu(); document.getElementById('player-input').value = `Go talk to ${INTERESTS[id].name}`; submitAction(); }
+
+// ============================================================
+// AURA MENU
+// ============================================================
+function toggleAuraMenu() {
+  const m = document.getElementById('aura-menu');
+  if (m.classList.contains('active')) { m.classList.remove('active'); return; }
+  renderAuraMenu(); m.classList.add('active');
+}
+function renderAuraMenu() {
+  const grid = document.getElementById('aura-grid');
+  grid.innerHTML = '';
+  for (const [type, aura] of Object.entries(AURAS)) {
+    const score = Math.round(aura.calc());
+    const isActive = STATE.aura.type === type;
+    let currentStage = 0;
+    for (let i = aura.stages.length - 1; i >= 0; i--) { if (score >= aura.stages[i].threshold) { currentStage = i; break; } }
+    const card = document.createElement('div');
+    card.className = `aura-card ${isActive ? 'active-aura' : ''}`;
+    let stages = '<div class="aura-card-stages">';
+    aura.stages.forEach((s, i) => {
+      const reached = score >= s.threshold;
+      stages += `<div class="aura-stage-pip ${i === currentStage ? 'current-stage' : reached ? 'reached' : ''}">${s.emoji} ${s.name}</div>`;
+      if (i < 2) stages += '<span style="color:#444;font-size:8px">→</span>';
+    });
+    stages += '</div>';
+    let perks = '<div class="aura-perk">';
+    aura.stages.forEach((s, i) => { if (s.perk) { const u = score >= s.threshold; perks += `<div class="${u?'unlocked':'locked'}">${u?'✅':'🔒'} Stg${i+1}: ${s.perk}</div>`; } });
+    perks += '</div>';
+    card.innerHTML = `<div class="aura-card-header"><span style="font-size:16px">${aura.stages[currentStage].emoji}</span><span style="font-size:clamp(7px,1.1vw,10px);color:${aura.color};text-transform:uppercase">${type}</span><span style="font-size:clamp(5px,0.8vw,8px);color:#888;margin-left:auto">${score}/100${isActive?' ⭐ ACTIVE':''}</span></div>${stages}<div class="aura-bar-bg"><div class="aura-bar-fill" style="width:${Math.min(100,score)}%;background:${aura.color}"></div></div>${perks}`;
+    grid.appendChild(card);
+  }
+}
+
+// ============================================================
+// PAUSE / SAVE / LOAD
+// ============================================================
+function togglePauseMenu() {
+  const m = document.getElementById('pause-overlay');
+  m.classList.toggle('active');
+  if (!m.classList.contains('active')) { document.getElementById('save-slots').style.display = 'none'; document.getElementById('load-slots').style.display = 'none'; }
+}
+
+function saveGame() {
+  const saveData = { state: JSON.parse(JSON.stringify(STATE)), history: conversationHistory.slice(-20), narrative: document.getElementById('narrative').innerHTML, timestamp: new Date().toISOString(), label: `Wk${STATE.week} ${DAYS[STATE.dayOfWeek].slice(0,3)} — ${STATE.aura.emoji} ${STATE.aura.name}` };
+  const div = document.getElementById('save-slots');
+  div.style.display = 'flex'; div.innerHTML = '';
+  for (let i = 1; i <= 3; i++) {
+    const existing = localStorage.getItem(`hallpass_save_${i}`);
+    let label = `SLOT ${i} — Empty`;
+    if (existing) { try { label = `SLOT ${i} — ${JSON.parse(existing).label}`; } catch(e){} }
+    const btn = document.createElement('button'); btn.className = 'save-slot-btn';
+    btn.innerHTML = `💾 ${label}<span class="slot-info">Tap to save here</span>`;
+    const slot = i;
+    btn.onclick = () => { localStorage.setItem(`hallpass_save_${slot}`, JSON.stringify(saveData)); showNotification(`💾 Saved Slot ${slot}!`); togglePauseMenu(); };
+    div.appendChild(btn);
+  }
+}
+
+function showLoadInGame() {
+  const div = document.getElementById('load-slots');
+  div.style.display = 'flex'; div.innerHTML = '';
+  for (let i = 1; i <= 3; i++) {
+    const existing = localStorage.getItem(`hallpass_save_${i}`);
+    let label = `SLOT ${i} — Empty`, has = false;
+    if (existing) { try { label = `SLOT ${i} — ${JSON.parse(existing).label}`; has = true; } catch(e){} }
+    const btn = document.createElement('button'); btn.className = 'save-slot-btn';
+    btn.textContent = `📂 ${label}`; btn.disabled = !has; btn.style.opacity = has ? 1 : 0.3;
+    if (has) { const s = i; btn.onclick = () => { loadSaveData(JSON.parse(localStorage.getItem(`hallpass_save_${s}`))); togglePauseMenu(); }; }
+    div.appendChild(btn);
+  }
+}
+
+function showLoadMenu() {
+  const saves = [];
+  for (let i = 1; i <= 3; i++) { const d = localStorage.getItem(`hallpass_save_${i}`); if (d) saves.push({ slot: i, data: JSON.parse(d) }); }
+  if (!saves.length) { alert('No saves found!'); return; }
+  const c = document.createElement('div'); c.style.cssText = 'display:flex;flex-direction:column;gap:6px;margin-top:12px;';
+  saves.forEach(s => { const btn = document.createElement('button'); btn.className = 'load-btn'; btn.textContent = `SLOT ${s.slot} — ${s.data.label}`; btn.onclick = () => { loadSaveData(s.data); c.remove(); }; c.appendChild(btn); });
+  document.getElementById('title-screen').appendChild(c);
+}
+
+function loadSaveData(d) {
+  Object.assign(STATE, d.state); conversationHistory = d.history || [];
+  document.getElementById('title-screen').style.display = 'none';
+  document.getElementById('ending-screen').style.display = 'none';
+  document.getElementById('narrative').innerHTML = d.narrative || '';
+  updateHUD(); drawScene(STATE.location);
+  showNotification('📂 Game loaded!');
+  showSuggestions(["Look around", "Check your phone", "Talk to someone nearby"]);
+}
+
+function confirmRestart() { if (confirm('Unsaved progress will be lost!')) location.reload(); }
+
+// ============================================================
+// LLM
+// ============================================================
+function buildSystemPrompt() {
+  const crewList = STATE.crew.length ? STATE.crew.map(c => `${c.emoji} ${c.name}`).join(', ') : 'None';
+  const metList = STATE.interests.length ? STATE.interests.map(c => `${c.emoji} ${c.name} [${STATE.relationships[c.id]||0}%${STATE.dating?.id===c.id?' DATING':''}]`).join(', ') : 'None';
+  const unmetI = Object.entries(INTERESTS).filter(([id]) => !STATE.interests.some(c => c.id === id)).map(([id, p]) => `- ${p.emoji} ${p.name}: ${p.vibe} (diff:${p.difficulty})`).join('\n');
+  const unmetC = Object.entries(CREW).filter(([id]) => !STATE.crew.some(c => c.id === id)).map(([id, p]) => `- ${p.emoji} ${p.name}: ${p.trait}`).join('\n');
+  const perks = STATE.activePerks.map(p => `- ${p.type} Stg${p.stage}: ${p.perk}`).join('\n');
+
+  return `You are the AI Dungeon Master for HALL PASS, an 8-bit middle school survival game. Superbad meets Oregon Trail meets The Sims.
+
+TONE: Funny, irreverent, authentic middle school drama. Everything dramatic and awkward. Roast the player. 3-4 sentences MAX.
+
+PROACTIVE STORYTELLING: Every 2-3 turns force an encounter. The school is ALIVE.
+
+STATE: Week ${STATE.week}/8 | ${DAYS[STATE.dayOfWeek]} ${TIMES[STATE.timeOfDay]} | ${STATE.location}
+Grades:${STATE.grades} Clout:${STATE.clout} Energy:${STATE.energy} Drive:${STATE.drive} Parents:${STATE.parentApproval} Trouble:${STATE.trouble} Cash:${STATE.cash}
+Aura: ${STATE.aura.emoji} ${STATE.aura.name} (Stg${STATE.aura.stage})
+PERKS: ${perks || 'None'}
+CREW: ${crewList} | ROMANTIC: ${metList} | DATING: ${STATE.dating ? STATE.dating.name : 'Single'}
+UNMET:\n${unmetC||'All'}\n${unmetI||'All'}
+
+WILD ACTIONS: Don't refuse. Brutal consequences. Trouble +20-40. Make it legendary.
+STAT BALANCE: Small changes (-3 to +5) normal. Big (-15 to +20) major events.
+
+JSON ONLY:
+{"narrative":"2-4 sentences","effects":{"grades":0,"clout":0,"energy":0,"drive":0,"parentApproval":0,"trouble":0,"cash":0},"newFriend":null,"metInterest":null,"dating":null,"relationshipChange":null,"newLocation":null,"suggestions":["s1","s2","s3"],"gameOver":false,"gameOverType":null,"notification":null}
+
+FIELDS: effects=stat changes. newFriend=crew id. metInterest=interest id (first meeting). dating=id/"dumped"/null. relationshipChange={"id":"x","amount":N}. suggestions=ALWAYS 3, mix responsible+chaotic. JSON ONLY.`;
+}
+
+async function callLLM(playerAction, retries = 2) {
+  conversationHistory.push({ role: 'user', content: `The player says: "${playerAction}"` });
+  if (conversationHistory.length > 40) conversationHistory = conversationHistory.slice(-30);
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      const text = await apiCall(buildSystemPrompt(), conversationHistory);
+      let clean = text.trim();
+      if (clean.startsWith('```')) clean = clean.replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '');
+      const m = clean.match(/\{[\s\S]*\}/);
+      if (!m) throw new Error('No JSON');
+      const result = JSON.parse(m[0]);
+      conversationHistory.push({ role: 'assistant', content: m[0] });
+      return result;
+    } catch (err) {
+      console.error(`LLM Error (${attempt + 1}):`, err);
+      if (attempt < retries) continue;
+      conversationHistory.pop();
+      return { narrative: `[Connection glitch] Someone bumps you in the hall. "Watch it!" Try again.`, effects: {}, suggestions: ["Try again", "Do something else", "Look around"], gameOver: false, notification: "⚠️ Connection hiccup" };
+    }
+  }
+}
+
+// ============================================================
+// GAME LOOP
+// ============================================================
+function applyEffects(result) {
+  if (result.effects) { for (const key of ['grades','clout','energy','drive','parentApproval','trouble','cash']) STATE[key] = Math.max(0, Math.min(100, STATE[key] + (result.effects[key] || 0))); }
+  if (result.newFriend && CREW[result.newFriend] && !STATE.crew.some(c => c.id === result.newFriend)) STATE.crew.push({ id: result.newFriend, ...CREW[result.newFriend] });
+  if (result.metInterest && INTERESTS[result.metInterest] && !STATE.interests.some(c => c.id === result.metInterest)) { STATE.interests.push({ id: result.metInterest, ...INTERESTS[result.metInterest] }); if (!STATE.relationships[result.metInterest]) STATE.relationships[result.metInterest] = 10; }
+  if (result.relationshipChange?.id) { const rid = result.relationshipChange.id; STATE.relationships[rid] = Math.max(0, Math.min(100, (STATE.relationships[rid]||0) + (result.relationshipChange.amount||0))); }
+  if (result.dating === 'dumped') STATE.dating = null;
+  else if (result.dating && INTERESTS[result.dating]) { STATE.dating = { id: result.dating, name: INTERESTS[result.dating].name, emoji: INTERESTS[result.dating].emoji }; STATE.relationships[result.dating] = Math.max(STATE.relationships[result.dating]||0, 70); if (!STATE.interests.some(c => c.id === result.dating)) STATE.interests.push({ id: result.dating, ...INTERESTS[result.dating] }); }
+  if (result.newLocation) STATE.location = result.newLocation;
+  if (result.advanceTime !== false) {
+    STATE.timeOfDay++;
+    if (STATE.timeOfDay > 4) { STATE.timeOfDay = 0; STATE.dayOfWeek++; STATE.energy = Math.min(100, STATE.energy + 35); if (STATE.dayOfWeek > 6) { STATE.dayOfWeek = 0; STATE.week++; STATE.cash = Math.min(100, STATE.cash + 15); if (!STATE.flags.studiedThisWeek) STATE.grades = Math.max(0, STATE.grades - 5); STATE.flags.studiedThisWeek = false; } }
+  }
+  updateHUD(); drawScene(STATE.location);
+  if (result.notification) showNotification(result.notification);
+  checkDangerWarnings();
+  if (result.gameOver || STATE.trouble > 95 || STATE.week > 8) {
+    STATE.gameOver = true;
+    let type = result.gameOverType;
+    if (STATE.trouble > 95) type = 'expelled';
+    else if (!type && STATE.week > 8) { if (STATE.grades >= 85) type = 'valedictorian'; else if (STATE.clout >= 80) type = 'popular'; else if (STATE.dating && STATE.drive >= 70) type = 'lover'; else if (STATE.cash >= 80) type = 'hustler'; else if (STATE.trouble >= 60) type = 'rebel'; else type = 'default'; }
+    setTimeout(() => triggerEnding(type, result.narrative), 500);
+  }
+}
+
+async function submitAction() {
+  const input = document.getElementById('player-input');
+  const action = input.value.trim();
+  if (!action || STATE.gameOver) return;
+  input.value = ''; document.getElementById('suggestions').innerHTML = '';
+  const narr = document.getElementById('narrative');
+  narr.innerHTML += `${narr.innerHTML?'<br>':''}<span style="color:#e74c3c;">▸ ${action}</span><br><br>`;
+  narr.scrollTop = narr.scrollHeight;
+  setLoading(true);
+  const result = await callLLM(action);
+  setLoading(false);
+  typeText(result.narrative, () => {
+    const statHTML = renderStatChanges(result.effects);
+    if (statHTML) { narr.innerHTML += statHTML; narr.scrollTop = narr.scrollHeight; }
+    applyEffects(result);
+    showSuggestions(result.suggestions);
+  });
+}
+
+document.getElementById('player-input').addEventListener('keydown', e => { if (e.key === 'Enter') submitAction(); });
+
+function triggerEnding(type, finalNarrative) {
+  const endings = {
+    expelled: { title: '💀 EXPELLED 💀', text: "Principal's office. Parents in the lot. Silent car ride. Legend status though." },
+    valedictorian: { title: '🏆 VALEDICTORIAN 🏆', text: "Straight A's. Parents sobbing. Speech nobody remembers." },
+    popular: { title: '👑 PROM ROYALTY 👑', text: "Your name on a crown. Everyone wants your table." },
+    class_clown: { title: '🎪 COMEDY GOD 🎪', text: "Made everyone laugh. Even the teachers. Memories forever." },
+    loner: { title: '🐺 ENIGMA 🐺', text: "Headphones in. World out. 'Who was that kid?'" },
+    lover: { title: '💕 HEARTBREAKER 💕', text: `${STATE.dating?STATE.dating.name+' at the gate.':'DMs catastrophic.'} Middle school love hits different.` },
+    hustler: { title: '🤑 YOUNG MOGUL 🤑', text: "$" + STATE.cash + " in pocket. Shark Tank incoming." },
+    rebel: { title: '🔥 PUNK LEGEND 🔥', text: "Broke every rule. Principal has a file. Never felt more alive." },
+    default: { title: '🏫 SEMESTER OVER 🏫', text: "You survived the hallways, the drama, the cafeteria food." },
+  };
+  const e = endings[type] || endings.default;
+  document.getElementById('ending-title').textContent = e.title;
+  document.getElementById('ending-text').textContent = finalNarrative || e.text;
+  document.getElementById('ending-stats').innerHTML = `${STATE.week} WEEKS | ${STATE.aura.emoji} ${STATE.aura.name}<br>CREW: ${STATE.crew.map(c=>c.emoji+' '+c.name).join(' ')||'None'}<br>${STATE.dating?'DATING: '+STATE.dating.emoji+' '+STATE.dating.name:'SINGLE'}<br>GPA:${STATE.grades} CLOUT:${STATE.clout} DRIVE:${STATE.drive} TROUBLE:${STATE.trouble} CASH:$${STATE.cash}`;
+  document.getElementById('ending-screen').style.display = 'flex';
+}
+
+function startGame() {
+  document.getElementById('title-screen').style.display = 'none';
+  drawScene('hallway'); updateHUD();
+  const opening = `First day back. Westfield Middle School.\n\nThe hallway hits you like a wall — Axe body spray, floor wax, and someone's burnt Hot Pocket from the teachers' lounge. Your locker combo is written on your palm in Sharpie. The kid next to you is already on his phone.\n\nA girl with paint on her hands (🎨 Mia) bumps into you and drops her sketchbook. Down the hall, some skater kid (🛹 Tyler) is grinding the stair rail while a teacher screams at him.\n\nYou've got 8 weeks until summer. Your grades are mid. Your clout is zero. Your aura is undefined.\n\nWhat are you gonna do about it?`;
+  const sug = ["Help Mia pick up her sketchbook", "Go watch Tyler grind the rail", "Find your first class before you're late"];
+  conversationHistory.push({ role: 'assistant', content: JSON.stringify({ narrative: opening, effects: {}, suggestions: sug }) });
+  typeText(opening, () => { showSuggestions(sug); document.getElementById('player-input').focus(); });
+}
+</script>
+</body>
+</html>
