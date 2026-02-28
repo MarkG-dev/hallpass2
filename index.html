@@ -1089,7 +1089,7 @@ async function callLLM(playerAction, retries = 2) {
       console.error(`LLM Error (${attempt + 1}):`, err);
       if (attempt < retries) continue;
       conversationHistory.pop();
-      return { narrative: `[Connection glitch] Someone bumps you in the hall. "Watch it!" Try again.`, effects: {}, suggestions: ["Try again", "Do something else", "Look around"], gameOver: false, notification: "⚠️ Connection hiccup" };
+      return { narrative: `[Connection glitch: ${err.message}] Someone bumps you in the hall. "Watch it!" Try again.`, effects: {}, suggestions: ["Try again", "Do something else", "Look around"], gameOver: false, notification: "⚠️ " + err.message };
     }
   }
 }
