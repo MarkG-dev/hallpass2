@@ -46,11 +46,11 @@ body {
   flex-direction: column;
 }
 
-/* SCENE */
+/* SCENE — cinematic 16:9ish ratio */
 #scene {
   position: relative;
   width: 100%;
-  flex: 0 0 35%;
+  flex: 0 0 42%;
   overflow: hidden;
   min-height: 0;
 }
@@ -119,32 +119,32 @@ body {
   text-align: right;
 }
 
-#day-counter {
+/* TOP RIGHT INFO BAR */
+#top-buttons {
   position: absolute;
-  top: 0.8vh; left: 50%; transform: translateX(-50%);
-  font-size: clamp(5px, 1vw, 8px); z-index: 10;
+  top: 0.5vh; right: 1vw;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: 0.5vw;
+}
+
+#day-counter {
+  font-size: clamp(7px, 1.3vw, 11px);
   text-shadow: 1px 1px 0 #000, -1px -1px 0 #000;
   color: #f1c40f;
   white-space: nowrap;
+  padding-right: 0.8vw;
+  border-right: 1px solid #444;
 }
 
-/* CHAPTER TIMER */
 #chapter-timer {
-  position: absolute;
-  top: 2.5vh; left: 50%; transform: translateX(-50%);
-  font-size: clamp(4px, 0.7vw, 6px); z-index: 10;
+  font-size: clamp(6px, 1.1vw, 10px);
   text-shadow: 1px 1px 0 #000;
-  color: #888;
+  color: #aaa;
   white-space: nowrap;
-}
-
-/* TOP BUTTONS */
-#top-buttons {
-  position: absolute;
-  top: 0.8vh; right: 1vw;
-  z-index: 20;
-  display: flex;
-  gap: 0.5vw;
+  padding-right: 0.8vw;
+  border-right: 1px solid #333;
 }
 
 .top-btn {
@@ -682,7 +682,7 @@ body {
 @media (max-width: 600px) {
   #game-wrapper { width: 100vw; height: 100vh; }
   #game { border: none; }
-  #scene { flex: 0 0 28%; }
+  #scene { flex: 0 0 35%; }
 
   .love-grid { grid-template-columns: 1fr; }
 
@@ -701,8 +701,8 @@ body {
   #narrative { font-size: clamp(8px, 2.8vw, 11px); }
   .stat-line { font-size: clamp(6px, 2.2vw, 8px); }
 
-  #day-counter { font-size: clamp(5px, 2vw, 8px); }
-  #chapter-timer { font-size: clamp(4px, 1.5vw, 6px); top: 3.5vh; }
+  #day-counter { font-size: clamp(6px, 2.2vw, 10px); }
+  #chapter-timer { font-size: clamp(5px, 1.8vw, 9px); }
 
   .menu-overlay h2 { font-size: clamp(10px, 3.5vw, 16px); }
   .love-card-emoji { font-size: clamp(16px, 6vw, 24px); }
@@ -765,10 +765,9 @@ body {
     <div class="stat-bar" onclick="toggleTooltip(this)"><span class="stat-icon">💰</span><div class="bar-bg"><div class="bar-fill cash" id="cash-bar"></div></div><span class="stat-num" id="cash-num">30</span><span class="tooltip">CASH — $20/week allowance. Hustle for more.</span></div>
   </div>
 
-  <div id="day-counter">WEEK 1 — MONDAY MORNING</div>
-  <div id="chapter-timer"></div>
-
   <div id="top-buttons">
+    <span id="day-counter">WEEK 1 — MONDAY MORNING</span>
+    <span id="chapter-timer"></span>
     <button class="top-btn" onclick="toggleLoveMenu()" title="Love Interests">💕</button>
     <button class="top-btn" onclick="toggleAuraMenu()" title="Aura">✨</button>
     <button class="top-btn" onclick="toggleLogMenu()" title="Game Log">📋</button>
@@ -2100,6 +2099,33 @@ function applyEffects(result) {
   }
 }
 
+// Auto-detect character names in player action and register them if AI forgot
+function autoDetectCharacters(action, result) {
+  const actionLower = action.toLowerCase();
+  // Check love interests
+  if (!result.metInterest) {
+    for (const [id, info] of Object.entries(INTERESTS)) {
+      if (info.wave === 2 && STATE.chapter < 3) continue; // skip locked wave 2
+      if (STATE.interests.some(c => c.id === id)) continue; // already met
+      if (actionLower.includes(info.name.toLowerCase())) {
+        result.metInterest = id;
+        break;
+      }
+    }
+  }
+  // Check crew
+  if (!result.newFriend) {
+    for (const [id, info] of Object.entries(CREW)) {
+      if (STATE.crew.some(c => c.id === id)) continue; // already in crew
+      if (actionLower.includes(info.name.toLowerCase())) {
+        result.newFriend = id;
+        break;
+      }
+    }
+  }
+  return result;
+}
+
 async function submitAction() {
   const input = document.getElementById('player-input');
   const action = input.value.trim();
@@ -2111,6 +2137,8 @@ async function submitAction() {
   setLoading(true);
   const result = await callLLM(action);
   setLoading(false);
+  // Auto-detect characters mentioned in player action if AI didn't flag them
+  autoDetectCharacters(action, result);
   typeText(result.narrative, () => {
     const statHTML = renderStatChanges(result.effects);
     if (statHTML) { narr.innerHTML += statHTML; narr.scrollTop = narr.scrollHeight; }
