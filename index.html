@@ -655,6 +655,29 @@ body {
 .save-slot-btn:hover { border-color: #f1c40f; color: #f1c40f; }
 .save-slot-btn .slot-info { color: #555; font-size: clamp(4px, 0.6vw, 5px); display: block; margin-top: 0.3vh; }
 
+/* LOG VIEWER */
+.log-container {
+  width: 100%;
+  max-width: 95%;
+  max-height: 50vh;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+.log-entry {
+  font-size: clamp(4px, 0.7vw, 6px);
+  color: #777;
+  line-height: 2;
+  border-bottom: 1px solid #1a1a1a;
+  padding: 0.3vh 0;
+}
+.log-entry .log-time { color: #555; }
+.log-entry .log-type { color: #e74c3c; }
+.log-entry.log-crew .log-type { color: #e74c3c; }
+.log-entry.log-met .log-type { color: #ff69b4; }
+.log-entry.log-relationship .log-type { color: #f1c40f; }
+.log-entry.log-dating .log-type { color: #ff69b4; }
+.log-entry.log-highlight .log-type { color: #f1c40f; }
+
 /* ============ MOBILE ============ */
 @media (max-width: 600px) {
   #game-wrapper { width: 100vw; height: 100vh; }
@@ -748,6 +771,7 @@ body {
   <div id="top-buttons">
     <button class="top-btn" onclick="toggleLoveMenu()" title="Love Interests">💕</button>
     <button class="top-btn" onclick="toggleAuraMenu()" title="Aura">✨</button>
+    <button class="top-btn" onclick="toggleLogMenu()" title="Game Log">📋</button>
     <button class="top-btn" onclick="togglePauseMenu()" title="Menu">☰</button>
   </div>
 
@@ -776,6 +800,13 @@ body {
     <h2 style="color:#f1c40f">✨ AURA PATHS ✨</h2>
     <div class="aura-grid" id="aura-grid"></div>
     <button class="menu-close" onclick="toggleAuraMenu()">CLOSE</button>
+  </div>
+
+  <!-- GAME LOG -->
+  <div id="log-menu" class="menu-overlay">
+    <h2 style="color:#e74c3c">📋 GAME LOG 📋</h2>
+    <div class="log-container" id="log-container"></div>
+    <button class="menu-close" onclick="toggleLogMenu()">CLOSE</button>
   </div>
 
   <!-- PAUSE MENU -->
@@ -836,6 +867,7 @@ const STATE = {
   aura: { type: 'newkid', stage: 1, name: 'New Kid', emoji: '😐' },
   gameOver: false, relationships: {}, activePerks: [],
   turnCount: 0, chapterHighlights: [], totalHighlights: [],
+  gameLog: [], // Tracks all major events
 };
 
 const STAT_LABELS = {
@@ -972,9 +1004,21 @@ function getCurrentChapter() { return Math.ceil(STATE.week / 2); } // 4 chapters
 const canvas = document.getElementById('bg-canvas');
 const ctx = canvas.getContext('2d');
 
+function getSceneNPCs() {
+  const seed = STATE.dayOfWeek * 10 + STATE.timeOfDay + STATE.week;
+  const available = Object.values(INTERESTS).filter(i => i.wave === 1 || getCurrentChapter() >= 3);
+  const npcs = [];
+  for (let i = 0; i < Math.min(6, available.length); i++) {
+    npcs.push(available[(seed + i * 7) % available.length].emoji);
+  }
+  return npcs;
+}
+
 function drawScene(loc) {
   const w = 400, h = 150;
   ctx.clearRect(0, 0, w, h);
+
+  // Sky gradient based on time
   let sky1, sky2;
   if (STATE.timeOfDay >= 4) { sky1 = '#0a0a1a'; sky2 = '#0d0d2a'; }
   else if (STATE.timeOfDay === 3) { sky1 = '#e8a87c'; sky2 = '#d4815a'; }
@@ -982,37 +1026,543 @@ function drawScene(loc) {
   const grad = ctx.createLinearGradient(0, 0, 0, h);
   grad.addColorStop(0, sky1); grad.addColorStop(1, sky2);
   ctx.fillStyle = grad; ctx.fillRect(0, 0, w, h);
-  ctx.fillStyle = '#4a4a4a'; ctx.fillRect(0, 115, w, 35);
 
-  if (loc?.includes('hall') || loc?.includes('class') || loc?.includes('librar') || loc?.includes('principal')) {
-    ctx.fillStyle = '#8b4513'; ctx.fillRect(50, 50, 300, 65);
-    ctx.fillStyle = '#87ceeb';
-    for (let i = 0; i < 6; i++) { ctx.fillRect(70 + i * 45, 62, 18, 16); ctx.fillRect(70 + i * 45, 85, 18, 12); }
-    ctx.fillStyle = '#5a3a1a'; ctx.fillRect(185, 80, 28, 35);
-    ctx.fillStyle = '#fff'; ctx.font = '5px sans-serif'; ctx.fillText('WESTFIELD HIGH', 150, 58);
+  const npcs = getSceneNPCs();
+  let isIndoor = false;
+
+  // ── CLASSROOM ──
+  if (loc?.includes('class') || loc?.includes('english') || loc?.includes('math') || loc?.includes('science') || loc?.includes('history')) {
+    isIndoor = true;
+    // Walls & floor
+    ctx.fillStyle = '#e8dcc8'; ctx.fillRect(0, 0, w, h); // beige wall
+    ctx.fillStyle = '#8b7d6b'; ctx.fillRect(0, 120, w, 30); // floor
+    ctx.fillStyle = '#7a6b5a'; ctx.fillRect(0, 118, w, 3); // baseboard
+
+    // Whiteboard
+    ctx.fillStyle = '#f5f5f5'; ctx.fillRect(80, 8, 240, 55);
+    ctx.strokeStyle = '#aaa'; ctx.lineWidth = 2; ctx.strokeRect(80, 8, 240, 55);
+    // Whiteboard text
+    ctx.fillStyle = '#2244aa'; ctx.font = '6px sans-serif';
+    ctx.fillText('SENIOR ENGLISH — Ch. 14 Quiz Friday', 95, 28);
+    ctx.fillStyle = '#cc3333'; ctx.font = '5px sans-serif';
+    ctx.fillText('PROM COMMITTEE SIGN-UP →', 100, 42);
+    // Whiteboard tray
+    ctx.fillStyle = '#ccc'; ctx.fillRect(80, 63, 240, 4);
+    // Markers on tray
+    ctx.fillStyle = '#e74c3c'; ctx.fillRect(90, 60, 3, 6);
+    ctx.fillStyle = '#3498db'; ctx.fillRect(96, 60, 3, 6);
+    ctx.fillStyle = '#2ecc71'; ctx.fillRect(102, 60, 3, 6);
+
+    // Teacher desk (front left)
+    ctx.fillStyle = '#6b5a4a'; ctx.fillRect(10, 75, 50, 22);
+    ctx.fillStyle = '#5a4a3a'; ctx.fillRect(10, 75, 50, 3);
+    // Teacher chair
+    ctx.fillStyle = '#333'; ctx.fillRect(25, 98, 20, 12);
+    ctx.fillStyle = '#444'; ctx.fillRect(28, 93, 14, 6);
+    // Apple + coffee on teacher desk
+    ctx.font = '8px serif'; ctx.fillText('🍎', 15, 90); ctx.fillText('☕', 40, 90);
+
+    // Student desks — 3 rows of 4
+    for (let row = 0; row < 3; row++) {
+      for (let col = 0; col < 4; col++) {
+        const dx = 100 + col * 72;
+        const dy = 78 + row * 18;
+        // Desk
+        ctx.fillStyle = '#c4a87c'; ctx.fillRect(dx, dy, 36, 10);
+        ctx.fillStyle = '#b09870'; ctx.fillRect(dx, dy + 10, 2, 7);
+        ctx.fillRect(dx + 34, dy + 10, 2, 7);
+        // Chair
+        ctx.fillStyle = '#e67e22'; ctx.fillRect(dx + 10, dy + 11, 16, 5);
+      }
+    }
+
+    // NPCs sitting at desks
+    ctx.font = '9px serif';
+    const deskPositions = [[108,76],[180,76],[252,76],[324,76],[108,94],[180,94],[252,94],[324,94]];
+    npcs.forEach((emoji, i) => {
+      if (i < deskPositions.length) {
+        ctx.globalAlpha = 0.8;
+        ctx.fillText(emoji, deskPositions[i][0], deskPositions[i][1]);
+      }
+    });
+    ctx.globalAlpha = 1;
+
+    // Clock on wall
+    ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(360, 18, 8, 0, Math.PI*2); ctx.fill();
+    ctx.strokeStyle = '#333'; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(360, 18, 8, 0, Math.PI*2); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(360, 18); ctx.lineTo(360, 12); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(360, 18); ctx.lineTo(365, 18); ctx.stroke();
+
+    // Door
+    ctx.fillStyle = '#8b6914'; ctx.fillRect(370, 45, 25, 73);
+    ctx.fillStyle = '#c0a060'; ctx.fillRect(385, 80, 4, 4);
   }
-  if (loc?.includes('cafe')) { ctx.fillStyle = '#8b4513'; ctx.fillRect(50, 55, 300, 60); ctx.fillStyle = '#c0c0c0'; for (let i = 0; i < 4; i++) { ctx.fillRect(80 + i * 70, 85, 38, 3); ctx.fillRect(95 + i * 70, 88, 3, 12); } }
-  if (loc?.includes('gym')) { ctx.fillStyle = '#8b6914'; ctx.fillRect(50, 55, 300, 60); ctx.strokeStyle = '#fff'; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(200, 85, 16, 0, Math.PI * 2); ctx.stroke(); }
-  if (loc?.includes('bath')) { ctx.fillStyle = '#d0d0c0'; ctx.fillRect(50, 55, 300, 60); }
-  if (loc?.includes('parking') || loc?.includes('lot')) { ctx.fillStyle = '#333'; ctx.fillRect(0, 100, w, 50); ['#e74c3c','#3498db','#2ecc71','#f39c12','#9b59b6'].forEach((c,i) => { ctx.fillStyle = c; ctx.fillRect(30+i*75, 105, 36, 15); }); }
-  if (loc?.includes('home') || loc?.includes('bedroom')) { ctx.fillStyle = '#8b7355'; ctx.fillRect(120, 55, 160, 60); ctx.fillStyle = '#5a3a2a'; ctx.beginPath(); ctx.moveTo(100, 55); ctx.lineTo(200, 22); ctx.lineTo(300, 55); ctx.fill(); ctx.fillStyle = STATE.timeOfDay >= 3 ? '#f1c40f' : '#87ceeb'; ctx.fillRect(145, 68, 22, 16); ctx.fillRect(230, 68, 22, 16); ctx.fillStyle = '#2d5a2d'; ctx.fillRect(0, 115, w, 35); }
-  if (loc?.includes('mall')) { ctx.fillStyle = '#c0c0c0'; ctx.fillRect(30, 45, 340, 70); ctx.fillStyle = '#e74c3c'; ctx.font = '7px sans-serif'; ctx.fillText('WESTFIELD MALL', 140, 58); }
-  if (loc?.includes('park')) { ctx.fillStyle = '#2d5a2d'; ctx.fillRect(0, 100, w, 50); for (let i = 0; i < 4; i++) { ctx.fillStyle = '#3a2a0a'; ctx.fillRect(60+i*90,70,4,30); ctx.fillStyle = '#1a6a1a'; ctx.beginPath(); ctx.arc(62+i*90,62,15,0,Math.PI*2); ctx.fill(); } }
-  if (loc?.includes('party') || loc?.includes('basement')) { ctx.fillStyle = '#1a1a2a'; ctx.fillRect(50, 45, 300, 70); ['#e74c3c','#3498db','#2ecc71','#f39c12','#9b59b6','#ff69b4'].forEach((c,i) => { ctx.fillStyle = c; ctx.globalAlpha = 0.3+Math.random()*0.4; ctx.fillRect(60+(i*97%280),50+(i*37%55),8,8); }); ctx.globalAlpha = 1; }
-  if (loc?.includes('pool') || loc?.includes('beach')) { ctx.fillStyle = '#1a6a8a'; ctx.fillRect(0, 100, w, 50); ctx.fillStyle = '#f5deb3'; ctx.fillRect(0, 95, w, 8); }
-  if (STATE.timeOfDay >= 4) { ctx.fillStyle = '#fff'; for (let i = 0; i < 15; i++) { ctx.globalAlpha = 0.3+Math.random()*0.7; ctx.fillRect((i*97+30)%w,(i*53+5)%40,1,1); } ctx.globalAlpha = 1; }
 
-  // Draw NPCs
-  const schoolLocs = ['hall','class','cafe','gym','librar'];
-  if (schoolLocs.some(s => loc?.includes(s))) {
-    const emojis = Object.values(INTERESTS).filter(i => i.wave === 1 || getCurrentChapter() >= 3).map(i => i.emoji);
-    const positions = [[320,108],[280,112],[350,105],[160,110],[220,108],[100,112]];
-    const seed = STATE.dayOfWeek*10+STATE.timeOfDay;
-    ctx.globalAlpha = 0.6;
-    for (let i = 0; i < Math.min(5, emojis.length); i++) { ctx.font = '10px serif'; ctx.fillText(emojis[(seed+i*7)%emojis.length], positions[(seed+i*3)%positions.length][0], positions[(seed+i*3)%positions.length][1]); }
+  // ── HALLWAY ──
+  else if (loc?.includes('hall') || loc?.includes('locker')) {
+    isIndoor = true;
+    // Floor — checkerboard tile
+    ctx.fillStyle = '#d4c8a8'; ctx.fillRect(0, 0, w, h);
+    for (let x = 0; x < w; x += 16) {
+      for (let y = 100; y < h; y += 16) {
+        ctx.fillStyle = (x/16 + y/16) % 2 === 0 ? '#c8bc9c' : '#b8a888';
+        ctx.fillRect(x, y, 16, 16);
+      }
+    }
+    // Walls
+    ctx.fillStyle = '#e8dcc8'; ctx.fillRect(0, 0, w, 45);
+    ctx.fillStyle = '#d0c4a8'; ctx.fillRect(0, 43, w, 3); // chair rail
+
+    // Lockers — rows of colored lockers
+    const lockerColors = ['#3498db','#2980b9','#3498db','#2980b9','#e74c3c','#3498db','#2980b9','#3498db','#e74c3c','#2980b9','#3498db','#2980b9','#3498db'];
+    lockerColors.forEach((c, i) => {
+      ctx.fillStyle = c; ctx.fillRect(i * 30 + 5, 46, 26, 52);
+      ctx.strokeStyle = '#1a1a1a'; ctx.lineWidth = 0.5; ctx.strokeRect(i * 30 + 5, 46, 26, 52);
+      // Locker vents
+      ctx.fillStyle = '#1a5276'; ctx.fillRect(i * 30 + 10, 50, 16, 2);
+      ctx.fillRect(i * 30 + 10, 54, 16, 2);
+      // Handle
+      ctx.fillStyle = '#ccc'; ctx.fillRect(i * 30 + 24, 70, 3, 6);
+    });
+
+    // Banner
+    ctx.fillStyle = '#f1c40f'; ctx.fillRect(120, 5, 160, 18);
+    ctx.fillStyle = '#1a1a1a'; ctx.font = 'bold 7px sans-serif'; ctx.fillText('GO WILDCATS! 🏆', 140, 17);
+
+    // Floor NPCs walking around
+    ctx.font = '11px serif';
+    const hallPositions = [[40,115],[100,118],[170,112],[250,116],[320,114],[380,118]];
+    npcs.forEach((emoji, i) => {
+      if (i < hallPositions.length) {
+        ctx.globalAlpha = 0.75;
+        ctx.fillText(emoji, hallPositions[i][0], hallPositions[i][1]);
+      }
+    });
+    ctx.globalAlpha = 1;
+
+    // Fluorescent lights
+    ctx.fillStyle = '#fff'; ctx.globalAlpha = 0.3;
+    ctx.fillRect(50, 0, 60, 3); ctx.fillRect(170, 0, 60, 3); ctx.fillRect(290, 0, 60, 3);
     ctx.globalAlpha = 1;
   }
-  [...STATE.crew, ...STATE.interests].forEach((c, i) => { ctx.font = '14px serif'; ctx.fillText(c.emoji, 50 + i * 28, 100); });
+
+  // ── CAFETERIA ──
+  else if (loc?.includes('cafe') || loc?.includes('lunch')) {
+    isIndoor = true;
+    // Walls & floor
+    ctx.fillStyle = '#e0d5c0'; ctx.fillRect(0, 0, w, h);
+    ctx.fillStyle = '#b0a080'; ctx.fillRect(0, 110, w, 40);
+
+    // Serving counter at back
+    ctx.fillStyle = '#c0c0c0'; ctx.fillRect(10, 10, 380, 25);
+    ctx.fillStyle = '#aaa'; ctx.fillRect(10, 35, 380, 3);
+    // Food items on counter
+    ctx.font = '8px serif';
+    ctx.fillText('🍕', 30, 28); ctx.fillText('🍔', 80, 28); ctx.fillText('🥗', 130, 28);
+    ctx.fillText('🥤', 180, 28); ctx.fillText('🍎', 230, 28); ctx.fillText('🍪', 280, 28);
+    // Sneeze guard
+    ctx.strokeStyle = '#ddd'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(10, 8); ctx.lineTo(390, 8); ctx.stroke();
+
+    // Lunch tables — 3 long tables with benches
+    for (let t = 0; t < 3; t++) {
+      const ty = 48 + t * 26;
+      // Table top
+      ctx.fillStyle = '#8b7355'; ctx.fillRect(40, ty, 320, 8);
+      // Table legs
+      ctx.fillStyle = '#6b5335';
+      ctx.fillRect(50, ty+8, 3, 8); ctx.fillRect(170, ty+8, 3, 8);
+      ctx.fillRect(290, ty+8, 3, 8); ctx.fillRect(350, ty+8, 3, 8);
+      // Benches
+      ctx.fillStyle = '#e67e22'; ctx.fillRect(45, ty-5, 310, 4);
+      ctx.fillStyle = '#e67e22'; ctx.fillRect(45, ty+16, 310, 4);
+      // Food trays on table
+      ctx.fillStyle = '#ddd';
+      for (let tr = 0; tr < 5; tr++) {
+        ctx.fillRect(60 + tr * 65, ty+1, 14, 5);
+      }
+    }
+
+    // NPCs at tables
+    ctx.font = '9px serif';
+    const cafePositions = [[55,46],[140,46],[230,46],[320,46],[80,72],[170,72],[260,72],[350,72],[100,98],[200,98],[300,98]];
+    npcs.forEach((emoji, i) => {
+      if (i < cafePositions.length) {
+        ctx.globalAlpha = 0.8;
+        ctx.fillText(emoji, cafePositions[i][0], cafePositions[i][1]);
+      }
+    });
+    ctx.globalAlpha = 1;
+
+    // Trash cans
+    ctx.fillStyle = '#555'; ctx.fillRect(10, 105, 12, 15); ctx.fillRect(378, 105, 12, 15);
+    ctx.fillStyle = '#888'; ctx.fillRect(8, 103, 16, 3); ctx.fillRect(376, 103, 16, 3);
+  }
+
+  // ── GYM ──
+  else if (loc?.includes('gym')) {
+    isIndoor = true;
+    // Gym floor — hardwood
+    ctx.fillStyle = '#c8a060'; ctx.fillRect(0, 0, w, h);
+    // Floor lines
+    ctx.strokeStyle = '#fff'; ctx.lineWidth = 2;
+    ctx.strokeRect(30, 15, 340, 120); // outer boundary
+    ctx.beginPath(); ctx.moveTo(200, 15); ctx.lineTo(200, 135); ctx.stroke(); // half court
+    ctx.beginPath(); ctx.arc(200, 75, 25, 0, Math.PI * 2); ctx.stroke(); // center circle
+    // Three-point arcs
+    ctx.beginPath(); ctx.arc(40, 75, 40, -Math.PI/2, Math.PI/2); ctx.stroke();
+    ctx.beginPath(); ctx.arc(360, 75, 40, Math.PI/2, -Math.PI/2); ctx.stroke();
+    // Free throw boxes
+    ctx.strokeRect(30, 45, 50, 60);
+    ctx.strokeRect(320, 45, 50, 60);
+    // Backboards & hoops
+    ctx.fillStyle = '#fff'; ctx.fillRect(28, 60, 4, 30);
+    ctx.fillStyle = '#e74c3c'; ctx.fillRect(32, 72, 8, 2); // rim
+    ctx.fillStyle = '#fff'; ctx.fillRect(368, 60, 4, 30);
+    ctx.fillStyle = '#e74c3c'; ctx.fillRect(360, 72, 8, 2);
+    // Bleachers at top
+    ctx.fillStyle = '#888'; ctx.fillRect(0, 0, w, 12);
+    ctx.fillStyle = '#777'; ctx.fillRect(0, 0, w, 6);
+    // NPCs on court
+    ctx.font = '10px serif';
+    const gymPositions = [[100,90],[150,70],[250,80],[300,65],[180,100],[350,95]];
+    npcs.forEach((emoji, i) => {
+      if (i < gymPositions.length) {
+        ctx.globalAlpha = 0.8;
+        ctx.fillText(emoji, gymPositions[i][0], gymPositions[i][1]);
+      }
+    });
+    ctx.globalAlpha = 1;
+    // Basketball
+    ctx.fillStyle = '#e67e22'; ctx.beginPath(); ctx.arc(200, 75, 4, 0, Math.PI*2); ctx.fill();
+    // Scoreboard
+    ctx.fillStyle = '#111'; ctx.fillRect(170, 0, 60, 10);
+    ctx.fillStyle = '#e74c3c'; ctx.font = '6px sans-serif'; ctx.fillText('HOME', 172, 8);
+    ctx.fillStyle = '#3498db'; ctx.fillText('AWAY', 205, 8);
+  }
+
+  // ── LIBRARY ──
+  else if (loc?.includes('librar')) {
+    isIndoor = true;
+    ctx.fillStyle = '#d4c8a8'; ctx.fillRect(0, 0, w, h);
+    ctx.fillStyle = '#8b7d6b'; ctx.fillRect(0, 125, w, 25);
+    // Bookshelves
+    for (let s = 0; s < 5; s++) {
+      const sx = 10 + s * 78;
+      ctx.fillStyle = '#5a3a1a'; ctx.fillRect(sx, 5, 65, 85);
+      // Shelves
+      for (let sh = 0; sh < 4; sh++) {
+        ctx.fillStyle = '#6b4a2a'; ctx.fillRect(sx, 5 + sh * 22, 65, 3);
+        // Books — colorful spines
+        const bookColors = ['#e74c3c','#3498db','#2ecc71','#f1c40f','#9b59b6','#e67e22','#1abc9c','#c0392b'];
+        for (let b = 0; b < 7; b++) {
+          ctx.fillStyle = bookColors[(s*7+sh*3+b) % bookColors.length];
+          ctx.fillRect(sx + 4 + b * 8, 8 + sh * 22, 5, 16);
+        }
+      }
+    }
+    // Study tables
+    ctx.fillStyle = '#8b7355';
+    ctx.fillRect(50, 100, 80, 8); ctx.fillRect(170, 100, 80, 8); ctx.fillRect(290, 100, 80, 8);
+    // Chairs
+    ctx.fillStyle = '#e67e22';
+    for (let t = 0; t < 3; t++) {
+      ctx.fillRect(60 + t*120, 110, 12, 5); ctx.fillRect(100 + t*120, 110, 12, 5);
+    }
+    // NPCs studying
+    ctx.font = '8px serif';
+    const libPositions = [[55,98],[130,98],[175,98],[250,98],[295,98],[370,98]];
+    npcs.slice(0,4).forEach((emoji, i) => {
+      ctx.globalAlpha = 0.7; ctx.fillText(emoji, libPositions[i][0], libPositions[i][1]);
+    });
+    ctx.globalAlpha = 1;
+    // "QUIET PLEASE" sign
+    ctx.fillStyle = '#fff'; ctx.fillRect(175, 92, 50, 8);
+    ctx.fillStyle = '#e74c3c'; ctx.font = '4px sans-serif'; ctx.fillText('🤫 QUIET PLEASE', 178, 98);
+  }
+
+  // ── BATHROOM ──
+  else if (loc?.includes('bath')) {
+    isIndoor = true;
+    ctx.fillStyle = '#d0d0c0'; ctx.fillRect(0, 0, w, h);
+    ctx.fillStyle = '#a0a090'; ctx.fillRect(0, 110, w, 40);
+    // Tile pattern on wall
+    for (let x = 0; x < w; x += 20) {
+      for (let y = 0; y < 110; y += 20) {
+        ctx.strokeStyle = '#c0c0b0'; ctx.lineWidth = 0.5; ctx.strokeRect(x, y, 20, 20);
+      }
+    }
+    // Stalls
+    for (let i = 0; i < 3; i++) {
+      ctx.fillStyle = '#888'; ctx.fillRect(30 + i * 80, 20, 60, 80);
+      ctx.fillStyle = '#999'; ctx.fillRect(30 + i * 80, 20, 60, 3);
+      ctx.fillStyle = '#aaa'; ctx.fillRect(55 + i * 80, 50, 4, 8); // handle
+    }
+    // Sinks
+    ctx.fillStyle = '#ddd';
+    for (let i = 0; i < 3; i++) {
+      ctx.fillRect(280 + i * 35, 60, 25, 12);
+      ctx.fillStyle = '#bbb'; ctx.fillRect(288 + i * 35, 55, 8, 6); // faucet
+      ctx.fillStyle = '#ddd';
+    }
+    // Mirror
+    ctx.fillStyle = '#8ab8d8'; ctx.fillRect(280, 20, 100, 35);
+    ctx.strokeStyle = '#ccc'; ctx.lineWidth = 1; ctx.strokeRect(280, 20, 100, 35);
+    // Graffiti
+    ctx.fillStyle = '#e74c3c'; ctx.font = '5px sans-serif'; ctx.fillText('TYLER WUZ HERE', 35, 108);
+    ctx.fillStyle = '#3498db'; ctx.fillText('B+A=❤️', 200, 108);
+  }
+
+  // ── PRINCIPAL'S OFFICE ──
+  else if (loc?.includes('principal') || loc?.includes('office')) {
+    isIndoor = true;
+    ctx.fillStyle = '#c8b898'; ctx.fillRect(0, 0, w, h);
+    ctx.fillStyle = '#6b5a4a'; ctx.fillRect(0, 120, w, 30);
+    // Big desk
+    ctx.fillStyle = '#4a3a2a'; ctx.fillRect(120, 60, 160, 30);
+    ctx.fillStyle = '#3a2a1a'; ctx.fillRect(120, 60, 160, 4);
+    // Chair behind desk
+    ctx.fillStyle = '#222'; ctx.fillRect(175, 40, 50, 20);
+    ctx.fillStyle = '#333'; ctx.fillRect(180, 35, 40, 8);
+    // Diploma frames
+    ctx.strokeStyle = '#8b6914'; ctx.lineWidth = 1;
+    ctx.strokeRect(50, 10, 30, 22); ctx.strokeRect(90, 10, 30, 22); ctx.strokeRect(280, 10, 30, 22); ctx.strokeRect(320, 10, 30, 22);
+    // Nameplate
+    ctx.fillStyle = '#c0a060'; ctx.fillRect(170, 65, 60, 8);
+    ctx.fillStyle = '#1a1a1a'; ctx.font = '4px sans-serif'; ctx.fillText('PRINCIPAL HARRIS', 174, 71);
+    // Detention chairs
+    ctx.fillStyle = '#e67e22';
+    ctx.fillRect(140, 100, 14, 10); ctx.fillRect(180, 100, 14, 10); ctx.fillRect(220, 100, 14, 10); ctx.fillRect(260, 100, 14, 10);
+  }
+
+  // ── PARKING LOT ──
+  else if (loc?.includes('parking') || loc?.includes('lot')) {
+    // Asphalt
+    ctx.fillStyle = '#333'; ctx.fillRect(0, 60, w, 90);
+    // Parking lines
+    ctx.strokeStyle = '#f1c40f'; ctx.lineWidth = 1;
+    for (let i = 0; i < 8; i++) { ctx.beginPath(); ctx.moveTo(30 + i * 50, 70); ctx.lineTo(30 + i * 50, 130); ctx.stroke(); }
+    // Cars — pixel art cars
+    const carColors = ['#e74c3c','#3498db','#2ecc71','#f39c12','#9b59b6','#1abc9c'];
+    carColors.forEach((c, i) => {
+      const cx = 35 + i * 55;
+      ctx.fillStyle = c; ctx.fillRect(cx, 85, 30, 14); // body
+      ctx.fillStyle = c; ctx.fillRect(cx+5, 78, 20, 8); // roof
+      ctx.fillStyle = '#87ceeb'; ctx.fillRect(cx+7, 79, 7, 5); ctx.fillRect(cx+16, 79, 7, 5); // windows
+      ctx.fillStyle = '#111'; ctx.beginPath(); ctx.arc(cx+7, 100, 3, 0, Math.PI*2); ctx.fill(); // wheels
+      ctx.beginPath(); ctx.arc(cx+23, 100, 3, 0, Math.PI*2); ctx.fill();
+    });
+    // School building in background
+    ctx.fillStyle = '#8b4513'; ctx.fillRect(50, 20, 300, 40);
+    ctx.fillStyle = '#fff'; ctx.font = '6px sans-serif'; ctx.fillText('WESTFIELD HIGH', 145, 35);
+  }
+
+  // ── HOME / BEDROOM ──
+  else if (loc?.includes('home') || loc?.includes('bedroom') || loc?.includes('house')) {
+    // Exterior or interior based on time
+    if (loc?.includes('bedroom') || loc?.includes('room')) {
+      isIndoor = true;
+      ctx.fillStyle = '#2a2a4a'; ctx.fillRect(0, 0, w, h); // dark walls
+      ctx.fillStyle = '#3a3a3a'; ctx.fillRect(0, 115, w, 35); // carpet
+      // Bed
+      ctx.fillStyle = '#555'; ctx.fillRect(20, 60, 90, 50);
+      ctx.fillStyle = '#3498db'; ctx.fillRect(22, 62, 86, 46); // blanket
+      ctx.fillStyle = '#fff'; ctx.fillRect(22, 62, 30, 18); // pillow
+      // Desk with computer
+      ctx.fillStyle = '#6b5a4a'; ctx.fillRect(150, 65, 70, 30);
+      ctx.fillStyle = '#333'; ctx.fillRect(165, 45, 40, 22); // monitor
+      ctx.fillStyle = '#4488cc'; ctx.fillRect(167, 47, 36, 18); // screen glow
+      ctx.fillStyle = '#444'; ctx.fillRect(175, 75, 20, 5); // keyboard
+      // Posters on wall
+      ctx.fillStyle = '#e74c3c'; ctx.fillRect(260, 10, 30, 40);
+      ctx.fillStyle = '#f1c40f'; ctx.fillRect(300, 15, 25, 35);
+      // Clothes on floor
+      ctx.font = '7px serif'; ctx.fillText('👕', 120, 130); ctx.fillText('👟', 250, 135);
+      // LED lights
+      const ledColors = ['#e74c3c','#ff69b4','#9b59b6','#3498db','#2ecc71','#f1c40f'];
+      ledColors.forEach((c, i) => { ctx.fillStyle = c; ctx.globalAlpha = 0.4; ctx.fillRect(i * 67, 0, 67, 2); });
+      ctx.globalAlpha = 1;
+    } else {
+      // House exterior
+      ctx.fillStyle = '#2d5a2d'; ctx.fillRect(0, 100, w, 50); // lawn
+      ctx.fillStyle = '#8b7355'; ctx.fillRect(120, 40, 160, 60); // house
+      ctx.fillStyle = '#5a3a2a'; ctx.beginPath(); ctx.moveTo(100, 40); ctx.lineTo(200, 8); ctx.lineTo(300, 40); ctx.fill(); // roof
+      ctx.fillStyle = STATE.timeOfDay >= 3 ? '#f1c40f' : '#87ceeb';
+      ctx.fillRect(145, 55, 22, 18); ctx.fillRect(230, 55, 22, 18); // windows
+      ctx.fillStyle = '#4a3020'; ctx.fillRect(188, 65, 24, 35); // door
+      ctx.fillStyle = '#c0a060'; ctx.fillRect(205, 80, 4, 4); // doorknob
+      // Mailbox
+      ctx.fillStyle = '#333'; ctx.fillRect(90, 85, 3, 20);
+      ctx.fillStyle = '#3498db'; ctx.fillRect(82, 80, 18, 10);
+      // Driveway
+      ctx.fillStyle = '#555'; ctx.fillRect(170, 100, 60, 50);
+    }
+  }
+
+  // ── MALL ──
+  else if (loc?.includes('mall') || loc?.includes('shop') || loc?.includes('store')) {
+    isIndoor = true;
+    ctx.fillStyle = '#e8e0d0'; ctx.fillRect(0, 0, w, h);
+    ctx.fillStyle = '#c0b8a0'; ctx.fillRect(0, 120, w, 30);
+    // Store fronts
+    const stores = [
+      { x: 10, color: '#e74c3c', name: 'ZUMIEZ' },
+      { x: 110, color: '#3498db', name: 'FOOTLOCKER' },
+      { x: 210, color: '#9b59b6', name: 'HOT TOPIC' },
+      { x: 310, color: '#2ecc71', name: 'STARBUCKS' },
+    ];
+    stores.forEach(s => {
+      ctx.fillStyle = s.color; ctx.fillRect(s.x, 10, 85, 15);
+      ctx.fillStyle = '#fff'; ctx.font = '5px sans-serif'; ctx.fillText(s.name, s.x + 8, 21);
+      ctx.fillStyle = '#ddd'; ctx.fillRect(s.x, 25, 85, 60); // storefront
+      ctx.fillStyle = '#aaddff'; ctx.fillRect(s.x + 5, 30, 75, 50); // window
+    });
+    // Benches
+    ctx.fillStyle = '#6b5a4a';
+    ctx.fillRect(60, 100, 50, 8); ctx.fillRect(200, 100, 50, 8); ctx.fillRect(330, 100, 50, 8);
+    // Fountain in center
+    ctx.fillStyle = '#87ceeb'; ctx.beginPath(); ctx.arc(200, 110, 12, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = '#5a9abb'; ctx.beginPath(); ctx.arc(200, 110, 8, 0, Math.PI*2); ctx.fill();
+    // NPCs shopping
+    ctx.font = '9px serif';
+    npcs.slice(0,4).forEach((emoji, i) => {
+      ctx.globalAlpha = 0.8; ctx.fillText(emoji, 40 + i * 95, 115);
+    });
+    ctx.globalAlpha = 1;
+  }
+
+  // ── PARK ──
+  else if (loc?.includes('park') && !loc?.includes('parking')) {
+    ctx.fillStyle = '#2d5a2d'; ctx.fillRect(0, 70, w, 80); // grass
+    // Path
+    ctx.fillStyle = '#c8b888'; ctx.fillRect(0, 105, w, 12);
+    // Trees
+    for (let i = 0; i < 5; i++) {
+      const tx = 40 + i * 85;
+      ctx.fillStyle = '#3a2a0a'; ctx.fillRect(tx, 50, 6, 35);
+      ctx.fillStyle = '#1a7a1a'; ctx.beginPath(); ctx.arc(tx+3, 42, 18, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle = '#1a6a1a'; ctx.beginPath(); ctx.arc(tx-5, 48, 12, 0, Math.PI*2); ctx.fill();
+      ctx.beginPath(); ctx.arc(tx+11, 48, 12, 0, Math.PI*2); ctx.fill();
+    }
+    // Bench
+    ctx.fillStyle = '#6b5a4a'; ctx.fillRect(150, 90, 40, 5);
+    ctx.fillRect(155, 95, 3, 8); ctx.fillRect(185, 95, 3, 8);
+    // Pond
+    ctx.fillStyle = '#4a8ab8'; ctx.beginPath(); ctx.ellipse(330, 90, 30, 15, 0, 0, Math.PI*2); ctx.fill();
+    // Ducks
+    ctx.font = '6px serif'; ctx.fillText('🦆', 320, 88); ctx.fillText('🦆', 335, 92);
+    // NPCs
+    ctx.font = '10px serif';
+    npcs.slice(0,3).forEach((emoji, i) => {
+      ctx.globalAlpha = 0.75; ctx.fillText(emoji, 60 + i * 120, 102);
+    });
+    ctx.globalAlpha = 1;
+  }
+
+  // ── PARTY / BASEMENT ──
+  else if (loc?.includes('party') || loc?.includes('basement')) {
+    isIndoor = true;
+    ctx.fillStyle = '#0a0a1a'; ctx.fillRect(0, 0, w, h);
+    // Disco/party lights
+    const time = Date.now() / 500;
+    for (let i = 0; i < 12; i++) {
+      const colors = ['#e74c3c','#3498db','#2ecc71','#f39c12','#9b59b6','#ff69b4'];
+      ctx.fillStyle = colors[i % colors.length];
+      ctx.globalAlpha = 0.15 + Math.sin(time + i) * 0.15;
+      ctx.beginPath();
+      ctx.arc(20 + i * 35, 30 + (i % 3) * 30, 25 + (i%2)*15, 0, Math.PI*2);
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+    // Couch
+    ctx.fillStyle = '#4a2a2a'; ctx.fillRect(20, 80, 80, 25);
+    ctx.fillStyle = '#5a3a3a'; ctx.fillRect(20, 75, 80, 8);
+    // Table with cups
+    ctx.fillStyle = '#6b5a4a'; ctx.fillRect(150, 90, 60, 8);
+    ctx.font = '6px serif';
+    ctx.fillText('🥤', 155, 88); ctx.fillText('🥤', 170, 88); ctx.fillText('🥤', 185, 88); ctx.fillText('🥤', 200, 88);
+    // Speaker
+    ctx.fillStyle = '#222'; ctx.fillRect(340, 60, 30, 45);
+    ctx.fillStyle = '#444'; ctx.beginPath(); ctx.arc(355, 75, 8, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(355, 92, 5, 0, Math.PI*2); ctx.fill();
+    // Music notes
+    ctx.fillStyle = '#ff69b4'; ctx.font = '10px serif'; ctx.globalAlpha = 0.6;
+    ctx.fillText('♪', 320, 50); ctx.fillText('♫', 375, 55); ctx.fillText('♪', 340, 40);
+    ctx.globalAlpha = 1;
+    // NPCs partying
+    ctx.font = '10px serif';
+    const partyPositions = [[30,118],[80,115],[140,118],[200,112],[260,118],[320,115],[370,118]];
+    npcs.forEach((emoji, i) => {
+      if (i < partyPositions.length) {
+        ctx.globalAlpha = 0.8; ctx.fillText(emoji, partyPositions[i][0], partyPositions[i][1]);
+      }
+    });
+    ctx.globalAlpha = 1;
+  }
+
+  // ── POOL / BEACH ──
+  else if (loc?.includes('pool') || loc?.includes('beach') || loc?.includes('swim')) {
+    // Sky already drawn
+    ctx.fillStyle = '#f5deb3'; ctx.fillRect(0, 85, w, 15); // sand/deck
+    ctx.fillStyle = '#2a8ab8'; ctx.fillRect(0, 100, w, 50); // water
+    // Waves
+    ctx.strokeStyle = '#3a9ac8'; ctx.lineWidth = 1;
+    for (let i = 0; i < 8; i++) {
+      ctx.beginPath();
+      ctx.moveTo(i * 55, 108 + (i%2)*5);
+      ctx.quadraticCurveTo(i * 55 + 25, 103 + (i%2)*5, i * 55 + 50, 108 + (i%2)*5);
+      ctx.stroke();
+    }
+    // Umbrellas
+    ctx.fillStyle = '#e74c3c'; ctx.beginPath(); ctx.arc(80, 75, 20, Math.PI, 0); ctx.fill();
+    ctx.fillStyle = '#3498db'; ctx.beginPath(); ctx.arc(280, 75, 20, Math.PI, 0); ctx.fill();
+    // Umbrella poles
+    ctx.fillStyle = '#8b6914'; ctx.fillRect(79, 75, 2, 20); ctx.fillRect(279, 75, 2, 20);
+    // Towels
+    ctx.fillStyle = '#ff69b4'; ctx.fillRect(60, 88, 30, 6);
+    ctx.fillStyle = '#f1c40f'; ctx.fillRect(265, 88, 30, 6);
+    // NPCs
+    ctx.font = '10px serif';
+    npcs.slice(0,4).forEach((emoji, i) => {
+      ctx.globalAlpha = 0.8; ctx.fillText(emoji, 50 + i * 90, 95);
+    });
+    ctx.globalAlpha = 1;
+  }
+
+  // ── DEFAULT EXTERIOR (school building) ──
+  else {
+    ctx.fillStyle = '#4a4a4a'; ctx.fillRect(0, 115, w, 35); // ground
+    ctx.fillStyle = '#8b4513'; ctx.fillRect(50, 45, 300, 70);
+    ctx.fillStyle = '#87ceeb';
+    for (let i = 0; i < 6; i++) { ctx.fillRect(70 + i * 45, 55, 18, 16); ctx.fillRect(70 + i * 45, 80, 18, 12); }
+    ctx.fillStyle = '#5a3a1a'; ctx.fillRect(185, 75, 28, 40);
+    ctx.fillStyle = '#fff'; ctx.font = '6px sans-serif'; ctx.fillText('WESTFIELD HIGH', 145, 50);
+    // Flag
+    ctx.fillStyle = '#888'; ctx.fillRect(345, 20, 2, 50);
+    ctx.fillStyle = '#e74c3c'; ctx.fillRect(347, 20, 18, 12);
+  }
+
+  // Stars at night (for outdoor scenes)
+  if (STATE.timeOfDay >= 4 && !isIndoor) {
+    ctx.fillStyle = '#fff';
+    for (let i = 0; i < 20; i++) {
+      ctx.globalAlpha = 0.3 + Math.random() * 0.7;
+      ctx.fillRect((i * 97 + 30) % w, (i * 53 + 5) % 50, 1, 1);
+    }
+    // Moon
+    ctx.globalAlpha = 0.9; ctx.fillStyle = '#f5f5dc';
+    ctx.beginPath(); ctx.arc(350, 20, 10, 0, Math.PI*2); ctx.fill();
+    ctx.globalAlpha = 1;
+  }
+
+  // Draw known crew/interests as larger icons at bottom
+  const known = [...STATE.crew, ...STATE.interests];
+  if (known.length > 0 && !isIndoor) {
+    ctx.font = '12px serif';
+    known.slice(0, 8).forEach((c, i) => {
+      ctx.fillText(c.emoji, 30 + i * 28, 140);
+    });
+  }
 }
 
 // ============================================================
@@ -1179,6 +1729,32 @@ function renderAuraMenu() {
     card.innerHTML = `<div class="aura-card-header"><span style="font-size:16px">${aura.stages[currentStage].emoji}</span><span style="font-size:clamp(7px,1.1vw,10px);color:${aura.color};text-transform:uppercase">${type}</span><span style="font-size:clamp(5px,0.8vw,8px);color:#888;margin-left:auto">${score}/100${isActive?' ⭐ ACTIVE':''}</span></div>${stages}<div class="aura-bar-bg"><div class="aura-bar-fill" style="width:${Math.min(100,score)}%;background:${aura.color}"></div></div>${perks}`;
     grid.appendChild(card);
   }
+}
+
+// ============================================================
+// GAME LOG MENU
+// ============================================================
+function toggleLogMenu() {
+  const m = document.getElementById('log-menu');
+  if (m.classList.contains('active')) { m.classList.remove('active'); return; }
+  renderLogMenu(); m.classList.add('active');
+}
+function renderLogMenu() {
+  const container = document.getElementById('log-container');
+  container.innerHTML = '';
+  if (!STATE.gameLog.length) {
+    container.innerHTML = '<div class="log-entry" style="color:#555;text-align:center">No events yet...</div>';
+    return;
+  }
+  // Show most recent first
+  const logs = [...STATE.gameLog].reverse();
+  logs.forEach(entry => {
+    const div = document.createElement('div');
+    div.className = `log-entry log-${entry.type}`;
+    const typeLabel = { action: '📝', crew: '🤝', met: '💕', relationship: '💛', dating: '❤️', location: '📍', highlight: '⭐' }[entry.type] || '•';
+    div.innerHTML = `<span class="log-time">Wk${entry.week} ${entry.day?.slice(0,3)} ${entry.time}</span> <span class="log-type">${typeLabel}</span> ${entry.detail}`;
+    container.appendChild(div);
+  });
 }
 
 // ============================================================
@@ -1355,8 +1931,14 @@ CREW: ${crewList} | MET INTERESTS: ${metList} | DATING: ${STATE.dating ? STATE.d
 UNMET CREW:\n${unmetC||'All met'}
 UNMET INTERESTS (available):\n${unmetI||'All met'}
 
+CRITICAL CHARACTER TRACKING:
+- When the player TALKS TO, HELPS, or INTERACTS WITH a named character for the FIRST TIME, you MUST set metInterest or newFriend in your response. This is MANDATORY. If the player helped Mia pick up her stuff, metInterest MUST be "mia". If the player talked to Tyler, newFriend MUST be "tyler". NEVER skip this.
+- When the player enters a new scene (classroom, cafeteria, gym, etc.), ALWAYS describe 1-2 specific named characters who are already there from the UNMET lists above. Use their emoji and name. Give the player someone to interact with.
+- When a character appears in the narrative, one of the 3 suggestions MUST involve interacting with that character.
+- relationshipChange: ANY positive interaction with a met interest should include relationshipChange with +3 to +15. Helping = +5, flirting = +8, deep conversation = +10, physical = +12-15.
+
 CRITICAL PACING RULES:
-- Energy MUST decrease by 5-15 EVERY turn during school (morning/lunch/afternoon). No exceptions.
+- Energy MUST decrease by 5-15 EVERY turn during school (morning/lunch/afternoon). No exceptions. Set effects.energy to a NEGATIVE number.
 - Evening activities cost 5-10 energy. If energy < 15, player is exhausted — force rest or bad outcomes.
 - Energy recharges overnight (+30-40) when player sleeps or new day starts.
 - Time MUST advance: after 3-4 player actions at the same time of day, advance to next period.
@@ -1378,16 +1960,17 @@ ROMANCE RULES: All characters are 18-year-old seniors. Romance can be real and p
 - If two interests are close friends and both have high relationship with player, complex group dynamics can develop naturally
 
 PROACTIVE STORYTELLING: Every 2-3 turns force an encounter. Characters approach the player. Drama finds you. The school is ALIVE.
-- Introduce unmet characters naturally in scenes
+- Introduce unmet characters naturally in scenes — describe them by name and emoji
 - Characters reference each other, spread rumors, create drama
 - Romantic interests flirt first sometimes if relationship is building
+- In classrooms: always mention who's sitting nearby. In hallways: someone bumps into you or calls your name. In cafeteria: describe the social layout.
 
 WILD ACTIONS: NEVER refuse any action. Give brutal real-world consequences. Trouble +20-40 for insane stuff. Make it legendary and memorable.
 
 JSON ONLY:
-{"narrative":"2-4 sentences","effects":{"grades":0,"clout":0,"energy":0,"drive":0,"parentApproval":0,"trouble":0,"cash":0},"newFriend":null,"metInterest":null,"dating":null,"relationshipChange":null,"newLocation":null,"suggestions":["s1","s2","s3"],"gameOver":false,"gameOverType":null,"notification":null,"highlight":null}
+{"narrative":"2-4 sentences","effects":{"grades":0,"clout":0,"energy":-8,"drive":0,"parentApproval":0,"trouble":0,"cash":0},"newFriend":null,"metInterest":null,"dating":null,"relationshipChange":null,"newLocation":null,"suggestions":["s1","s2","s3"],"gameOver":false,"gameOverType":null,"notification":null,"highlight":null}
 
-FIELDS: effects=stat changes (energy MUST change almost every turn). newFriend=crew id. metInterest=interest id (first meeting). dating=id/"dumped"/null. relationshipChange={"id":"x","amount":N}. suggestions=ALWAYS 3, mix responsible+chaotic+romantic. highlight=short memorable quote if something big happened (for chapter recap). JSON ONLY — no other text.`;
+FIELDS: effects=stat changes (energy MUST be negative during school hours — ALWAYS). newFriend=crew member id (tyler/deshawn/riley/marcus/jazz) when player first meaningfully interacts with them. metInterest=interest id when player first meets/talks to a love interest — MANDATORY on first interaction. dating=id/"dumped"/null. relationshipChange={"id":"x","amount":N} — include for ANY positive/negative interaction with a met interest. suggestions=ALWAYS 3, one should involve a nearby character by name. highlight=short memorable quote if something big happened (for chapter recap). JSON ONLY — no other text.`;
 }
 
 async function callLLM(playerAction, retries = 2) {
@@ -1417,17 +2000,65 @@ async function callLLM(playerAction, retries = 2) {
 }
 
 // ============================================================
+// GAME LOG
+// ============================================================
+function logEvent(type, detail) {
+  STATE.gameLog.push({
+    turn: STATE.turnCount,
+    week: STATE.week,
+    day: DAYS[STATE.dayOfWeek],
+    time: TIMES[STATE.timeOfDay],
+    type,
+    detail,
+    timestamp: Date.now(),
+  });
+}
+
+// ============================================================
 // GAME LOOP
 // ============================================================
 function applyEffects(result) {
   if (result.effects) { for (const key of ['grades','clout','energy','drive','parentApproval','trouble','cash']) STATE[key] = Math.max(0, Math.min(100, STATE[key] + (result.effects[key] || 0))); }
-  if (result.newFriend && CREW[result.newFriend] && !STATE.crew.some(c => c.id === result.newFriend)) STATE.crew.push({ id: result.newFriend, ...CREW[result.newFriend] });
-  if (result.metInterest && INTERESTS[result.metInterest] && !STATE.interests.some(c => c.id === result.metInterest)) { STATE.interests.push({ id: result.metInterest, ...INTERESTS[result.metInterest] }); if (!STATE.relationships[result.metInterest]) STATE.relationships[result.metInterest] = 10; }
-  if (result.relationshipChange?.id) { const rid = result.relationshipChange.id; STATE.relationships[rid] = Math.max(0, Math.min(100, (STATE.relationships[rid]||0) + (result.relationshipChange.amount||0))); }
-  if (result.dating === 'dumped') STATE.dating = null;
-  else if (result.dating && INTERESTS[result.dating]) { STATE.dating = { id: result.dating, name: INTERESTS[result.dating].name, emoji: INTERESTS[result.dating].emoji }; STATE.relationships[result.dating] = Math.max(STATE.relationships[result.dating]||0, 70); if (!STATE.interests.some(c => c.id === result.dating)) STATE.interests.push({ id: result.dating, ...INTERESTS[result.dating] }); }
-  if (result.newLocation) STATE.location = result.newLocation;
-  if (result.highlight) STATE.chapterHighlights.push(result.highlight);
+
+  // Log narrative
+  logEvent('action', result.narrative?.substring(0, 120));
+
+  if (result.newFriend && CREW[result.newFriend] && !STATE.crew.some(c => c.id === result.newFriend)) {
+    STATE.crew.push({ id: result.newFriend, ...CREW[result.newFriend] });
+    logEvent('crew', `Met crew member: ${CREW[result.newFriend].emoji} ${CREW[result.newFriend].name}`);
+    showNotification(`🤝 ${CREW[result.newFriend].name} joined your crew!`);
+  }
+  if (result.metInterest && INTERESTS[result.metInterest] && !STATE.interests.some(c => c.id === result.metInterest)) {
+    STATE.interests.push({ id: result.metInterest, ...INTERESTS[result.metInterest] });
+    if (!STATE.relationships[result.metInterest]) STATE.relationships[result.metInterest] = 10;
+    logEvent('met', `Met ${INTERESTS[result.metInterest].emoji} ${INTERESTS[result.metInterest].name}`);
+    showNotification(`💕 Met ${INTERESTS[result.metInterest].name}!`);
+  }
+  if (result.relationshipChange?.id) {
+    const rid = result.relationshipChange.id;
+    const oldRel = STATE.relationships[rid] || 0;
+    STATE.relationships[rid] = Math.max(0, Math.min(100, oldRel + (result.relationshipChange.amount||0)));
+    const name = INTERESTS[rid]?.name || rid;
+    logEvent('relationship', `${name}: ${oldRel}% → ${STATE.relationships[rid]}%`);
+  }
+  if (result.dating === 'dumped') {
+    logEvent('dating', `Broke up with ${STATE.dating?.name || 'someone'}`);
+    STATE.dating = null;
+  }
+  else if (result.dating && INTERESTS[result.dating]) {
+    STATE.dating = { id: result.dating, name: INTERESTS[result.dating].name, emoji: INTERESTS[result.dating].emoji };
+    STATE.relationships[result.dating] = Math.max(STATE.relationships[result.dating]||0, 70);
+    if (!STATE.interests.some(c => c.id === result.dating)) STATE.interests.push({ id: result.dating, ...INTERESTS[result.dating] });
+    logEvent('dating', `Now dating ${INTERESTS[result.dating].emoji} ${INTERESTS[result.dating].name}!`);
+  }
+  if (result.newLocation) {
+    STATE.location = result.newLocation;
+    logEvent('location', `Moved to ${result.newLocation}`);
+  }
+  if (result.highlight) {
+    STATE.chapterHighlights.push(result.highlight);
+    logEvent('highlight', result.highlight);
+  }
 
   // Time progression
   STATE.turnCount++;
